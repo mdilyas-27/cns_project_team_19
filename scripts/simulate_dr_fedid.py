@@ -188,9 +188,22 @@ def run_dr_fedid_simulation():
     ax2.legend(loc='lower left', fontsize=8.5)
 
     plt.tight_layout()
-    plt.savefig('images/dr_fedid_simulation_results.png', bbox_inches='tight')
-    plt.savefig('images/dr_fedid_simulation_results.pdf', bbox_inches='tight')
-    print("Saved simulation results plots to images/dr_fedid_simulation_results.png and .pdf")
+    output_dirs = ['figures', 'images']
+    if os.path.exists('paper/images'):
+        output_dirs.append('paper/images')
+    if os.path.exists('../figures'):
+        output_dirs.append('../figures')
+    if os.path.exists('../images'):
+        output_dirs.append('../images')
+        
+    for out_dir in output_dirs:
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            plt.savefig(os.path.join(out_dir, 'dr_fedid_simulation_results.png'), bbox_inches='tight')
+            plt.savefig(os.path.join(out_dir, 'dr_fedid_simulation_results.pdf'), bbox_inches='tight')
+        except Exception:
+            pass
+    print("Saved simulation results plots to figures/ and images/ (dr_fedid_simulation_results.png and .pdf)")
 
 if __name__ == '__main__':
     run_dr_fedid_simulation()
