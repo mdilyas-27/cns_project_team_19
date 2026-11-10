@@ -1,4 +1,4 @@
-# Exploring and Enhancing Placement of Intrusion Detection Systems in RPL: A Federated Learning-Based Approach
+# IDS Placement in RPL Networks: Project Results, Code Audit, and a Synthetic DR-FedID Prototype
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Institution: IIITDM Kancheepuram](https://img.shields.io/badge/Institution-IIITDM%20Kancheepuram-orange.svg)](https://www.iiitdm.ac.in/)
@@ -12,7 +12,7 @@ This repository contains the simulation code, evaluation benchmarks, result grap
 - **Shaik Sifat Ahmed** (Roll No: `CS23B1035`) — `cs23b1035@iiitdm.ac.in`
 - **Abhinay** (Roll No: `CS23I1009`) — `cs23i1009@iiitdm.ac.in`
 
-This project studies where an intrusion detection system (IDS) should be placed in an RPL sensor network. We test three placement strategies on 31,626 Cooja simulation runs, examine the FedID federated learning framework, and design a novelty extension called **Dynamic and Resilient FedID (DR-FedID)**.
+This project examines where an intrusion detection system (IDS) should be placed in an RPL sensor network. We analyze four placement paradigms (CIDwL, CIDwG, DCID, FedID), conduct an implementation audit, and evaluate a prototype for **Dynamic and Resilient FedID (DR-FedID)**.
 
 ---
 
