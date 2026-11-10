@@ -13,20 +13,20 @@ This repository contains the simulation code, evaluation benchmarks, result grap
 - **Shaik Sifat Ahmed** (Roll No: `CS23B1035`) — `cs23b1035@iiitdm.ac.in`
 - **Abhinay** (Roll No: `CS23I1009`) — `cs23i1009@iiitdm.ac.in`
 
-The project investigates the spatial placement of Intrusion Detection Systems (IDSs) in multi-hop Routing Protocol for Low-Power and Lossy Networks (RPL), evaluates decentralized Federated Learning (FedID), and introduces an upcoming-iteration extension: **Dynamic and Resilient FedID (DR-FedID)**.
+This project studies where an intrusion detection system (IDS) should be placed in an RPL sensor network. We test three placement strategies on 31,626 Cooja simulation runs, examine the FedID federated learning framework, and design a novelty extension called **Dynamic and Resilient FedID (DR-FedID)**.
 
 ---
 
 ## Key Highlights & Findings
 
-1. **Spatial Degradation in Centralized Monitoring (CIDwL):** Root-only placement suffers severe detection decay as attacks occur further down the DODAG hierarchy. For example, Blackhole detection accuracy drops by **47.3%** (from 98.8% at Level 1 to 51.5% at Level 8).
-2. **Monitor Scaling Overhead (CIDwG):** Achieving omniscient visibility across 10 depth levels requires deploying at least 1 monitor per DODAG level, generating **378 KB** of raw telemetry streaming per round, which saturates constrained IEEE 802.15.4 links.
-3. **Consensus Trade-off (DCID):** Distributed collaborative voting with a 50% majority threshold achieves an optimal balance between false alarm rejection and sensitivity, transmitting only **2.7 KB** of alarm traffic.
-4. **Federated Intrusion Detection (FedID):** Decentralized XGBoost with Federated Averaging (FedAvg) eliminates runtime telemetry streaming (**0 bytes during testing**). Sharing a modest 10% local data slice resolves Non-IID model divergence across hierarchical network tiers.
-5. **Novelty Extension (DR-FedID):** 
-   - **Dynamic Monitor Shuffling:** Overcomes evasive adversary relocation (+14.2% detection improvement over static placement).
-   - **Multi-Krum Byzantine Defense:** Rejects poisoned model updates from compromised collaborator nodes, restoring accuracy from 56.19% to 67.96%.
-   - **Local Differential Privacy (LDP):** Injects calibrated Laplace/Gaussian perturbations into sparsified gradient updates to eliminate raw sample exposure.
+1. **Root-Only Monitoring (CIDwL):** Monitoring only at the root node leaves downstream nodes exposed. For Blackhole attacks, detection accuracy drops by **47.3%** (falling from 98.8% at Level 1 to just 51.5% at Level 8).
+2. **Monitor Scaling Overhead (CIDwG):** Covering all 10 network levels requires deploying at least 1 monitor on every level. But sending 35 features per minute from 9 nodes generates **378 KB** of raw traffic per round, which quickly congests lossy 802.15.4 channels.
+3. **Voting Consensus (DCID):** Collaborative voting with a 50% majority threshold balances false alarms and detection, using just **2.7 KB** of alarm messages.
+4. **Federated Learning (FedID):** Local XGBoost training with FedAvg aggregation needs **zero communication bytes during testing**. Sharing a small 10% slice of local data solves non-IID model divergence.
+5. **Proposed Extension (DR-FedID):** 
+   - **Dynamic Monitor Shuffling:** Rotates monitoring roles based on routing churn (+14.2% higher detection against relocating attackers).
+   - **Multi-Krum Defense:** Drops poisoned updates from malicious nodes, restoring accuracy from 56.19% back to 67.96%.
+   - **Local Differential Privacy (LDP):** Injects calibrated noise into sparsified weights so nodes never expose raw sample data.
 
 ---
 
