@@ -1,0 +1,68 @@
+# Simulation and Evaluation Parameters
+# Project: Exploring and Enhancing Placement of IDS in RPL: A Federated Learning-Based Approach
+# Institution: Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)
+
+network:
+  nodes: 30
+  depth_levels: 10
+  grid_layout: "10x3"
+  mac_standard: "IEEE 802.15.4"
+  routing_protocol: "RPL (RFC 6550)"
+  objective_function: "MRHOF"
+  operating_system: "Contiki 2.7"
+  simulator: "Cooja"
+
+attacks:
+  - Decreased Rank (DR)
+  - Increased Version (IV)
+  - Blackhole (BH)
+  - Selective Forwarding (SF)
+  - DIS Flooding (DI)
+  - DIO Flooding (HF)
+  - Wormhole / P2P Bypass (WP)
+
+feature_extraction:
+  window_duration_seconds: 60
+  total_features: 35
+  feature_types:
+    - DIO transmission/reception counts
+    - DIS transmission/reception counts
+    - DAO transmission/reception counts
+    - Data packet drop ratio
+    - Packet forwarding latency
+    - Parent change frequency
+    - Trickle timer reset count
+
+placement_architectures:
+  cidwl:
+    description: "Centralized with Local Information (Root only, Node 0)"
+    num_monitors: 1
+    features: "Local 35 features"
+  cidwg:
+    description: "Centralized with Global Information (Root + K collaborators)"
+    collaborators: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    communication_overhead_bytes_per_round: 378000
+  dcid:
+    description: "Distributed Collaborative Intrusion Detection (Local inference + Root voting)"
+    voting_threshold: 0.50
+    communication_overhead_bytes_per_round: 2700
+  fedid:
+    description: "Federated Intrusion Detection (Local XGBoost + FedAvg aggregation)"
+    local_classifier: "XGBoost"
+    tree_depth: 6
+    num_estimators: 50
+    learning_rate: 0.1
+    data_sharing_ratio: 0.10
+    runtime_testing_overhead_bytes: 0
+
+dr_fedid_novelty:
+  churn_entropy_threshold: 0.72
+  monitor_shuffle_interval_seconds: 120
+  byzantine_defense:
+    algorithm: "Multi-Krum"
+    num_byzantine_tolerated: 2
+    deviation_threshold_sigma: 2.5
+  privacy:
+    mechanism: "Local Differential Privacy (LDP)"
+    epsilon: 1.5
+    delta: 1e-5
