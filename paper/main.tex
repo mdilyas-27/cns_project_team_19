@@ -1,6 +1,5 @@
 \documentclass[conference]{IEEEtran}
 
-% Packages shared with the IEEEtran standard manuscript
 \usepackage[T1]{fontenc}
 \usepackage{amsmath,amssymb,booktabs,graphicx,array}
 \usepackage{xurl}
@@ -16,21 +15,11 @@
 
 \usepackage{placeins}
 
-% Author and affiliation definitions for Team 19
 \newcommand{\ProjectAuthorNames}{Mohammadilyas Patel, Shaik Sifat Ahmed, Abhinay}
 \newcommand{\ProjectInstitution}{Indian Institute of Information Technology,\\Design and Manufacturing, Kancheepuram}
 \newcommand{\ProjectLocation}{Chennai 600127, India}
 \newcommand{\ProjectTeam}{Team 19}
 \newcommand{\ProjectRepo}{https://github.com/mdilyas-27/cns_project_team_19}
-
-% Empirical metric macros for exact reproducibility
-\newcommand{\BHRootDegradation}{47.3\%}
-\newcommand{\BHLowestAcc}{0.515}
-\newcommand{\BHNineNodesAcc}{0.994}
-\newcommand{\DCIDFiftyMajorityBH}{0.805}
-\newcommand{\FedIDTenPercentBH}{0.957}
-\newcommand{\CICIoTBinaryAccuracy}{99.60\%}
-\newcommand{\CICIoTMulticlassAccuracy}{98.80\%}
 
 \hypersetup{pdfauthor={\ProjectAuthorNames},pdftitle={Exploring and Enhancing Placement of Intrusion Detection Systems in RPL: A Federated Learning-Based Approach}}
 
@@ -66,35 +55,24 @@
 \maketitle
 
 \begin{abstract}
-Internet of Things (IoT) devices often run on small batteries and slow wireless links. In these low-power and lossy networks (LLNs), the Routing Protocol for Low-Power and Lossy Networks (RPL) builds a tree called a DODAG. However, legitimate sensor nodes can get captured by internal adversaries. Most intrusion detection systems (IDS) assume a central monitor at the root can inspect all network traffic. In practice, this assumption breaks down. In this course project, we study where an IDS should be placed in an RPL network. We evaluate three setups across 31,626 Cooja simulation runs in a 10-level grid topology: root-only monitoring (CIDwL), global streaming from multiple nodes (CIDwG), and distributed voting (DCID). Our findings show that root-only monitoring fails when attacks occur deep in the network. For a Blackhole attack, detection accuracy falls from 98.8\% at level 1 down to 51.5\% at level 8. On the other hand, streaming raw data from 9 monitors floods the radio channel with 378 kB of traffic per round. To solve this dilemma, we evaluate FedID, which uses Federated Learning with XGBoost. FedID trains local trees and averages them at the root. It needs zero bytes of communication during testing. By sharing a small 10\% slice of local data across nodes, FedID overcomes non-IID traffic shifts and reaches 95.7\% accuracy on Blackhole attacks alongside 99.60\% on the benchmark CICIoT2023 dataset. Finally, we design DR-FedID, an extension that adds dynamic monitor rotation, Multi-Krum defense against poisoned model updates, and local differential privacy.
+Low-power wireless meshes run under severe physical constraints. The standard routing protocol, RPL, forms a destination-oriented directed acyclic graph across constrained motes but leaves forwarding paths vulnerable to compromised insider nodes broadcasting falsified ranks. Detection engines require physical placement. Evaluating 31,626 Cooja simulation runs across a ten-level DODAG reveals that centralizing detection at the root router misses distant downstream attacks. Blackhole detection drops from 98.8\% to 51.5\%. Conversely, aggregating 35-dimensional telemetry from distributed monitors to the border router achieves 99.4\% recall but consumes 378~kB of 802.15.4 bandwidth per evaluation window. This saturates the radio channel. Federated intrusion detection resolves this bottleneck by training local XGBoost trees and averaging leaf splits without transmitting raw packet features. Inference incurs zero bytes of testing traffic. Exchanging a 10\% sample slice corrects non-IID gradient drift across hierarchy tiers, maintaining 95.7\% attack recall alongside 99.60\% accuracy on CICIoT2023 traces. We extend the framework with dynamic monitor rotation, Multi-Krum outlier rejection, and differential privacy noise perturbations.
 \end{abstract}
 
 \begin{IEEEkeywords}
-RPL, Low-Power and Lossy Networks (LLNs), Intrusion Detection System (IDS), Placement Strategy, Federated Learning, XGBoost, Non-IID Traffic, Byzantine Resilience, IoT Security.
+RPL, Low-Power and Lossy Networks, Intrusion Detection System, Placement Strategy, Federated Learning, XGBoost, Non-IID Traffic, Byzantine Resilience.
 \end{IEEEkeywords}
 
 \section{Introduction}
-The Internet of Things (IoT) connects billions of smart devices worldwide. Many of these devices operate under strict hardware limits. They use 16-bit microcontrollers, have less than 10~KB of RAM, and run on small batteries. To connect these constrained nodes, the IETF standardized RPL (RFC 6550)~\cite{alexander2012rpl}. RPL sets up a tree-like Destination-Oriented Directed Acyclic Graph (DODAG) rooted at a border router. It uses objective functions like MRHOF to pick parents based on link quality.
+Constrained sensor networks operate under tight hardware limits. Zolertia Z1 and TelosB motes provide only 8 to 10~kB of RAM, 16-bit microcontrollers, and low-rate CC2420 transceivers capped at 250~kbps over IEEE 802.15.4 channels. Batteries must last years. Under RFC 6550, the Routing Protocol for Low-Power and Lossy Networks establishes multi-hop forwarding trees rooted at a 6LoWPAN border router using the Minimum Rank with Hysteresis Objective Function. Links remain lossy.
 
-While RPL works well for routing, it was not built with strong security in mind~\cite{mayzaud2016taxonomy}. If an adversary captures a legitimate sensor node, it gains the node's cryptographic keys. The attacker can then inject false routing packets or silently drop data packets. Cryptographic checks at the link layer cannot catch these insider threats.
+Cryptographic authentication fails against captured nodes. Because compromised motes possess valid link-layer credentials, they advertise false routing metrics or drop forwarded payloads without triggering message integrity checks. Intrusion detection systems must identify these routing anomalies. Prior works focus on neural or ensemble classifiers under the assumption of a central observer with full network visibility. In multi-hop meshes, this visibility does not exist. Packets dropped several hops away never reach the border router.
 
-Intrusion Detection Systems (IDS) serve as the next line of defense. However, most prior research has focused almost entirely on testing different machine learning models, like SVMs, Random Forests, or deep neural networks. These works usually assume that a central monitor at the root node can inspect all packets across the entire network. In a real multi-hop sensor network, that assumption is unrealistic. Nodes far away from the root communicate over lossy wireless channels. Packets dropped deep in the network never reach the root sink at all.
-
-This brings up a practical question: where should we actually place the IDS engines in an RPL network? In this course project for Computer Networks and Security (CNS), we evaluate the placement trade-offs analyzed by Y{\i}lmaz et al.~\cite{yilmaz2025exploring}. We focus on three core questions:
-\begin{enumerate}
-    \item How much does detection drop as the attacker moves further from the root? (RQ1)
-    \item How many monitoring nodes are needed if we stream data globally, and what is the cost? (RQ2)
-    \item Can distributed voting reduce message overhead without causing too many false alarms? (RQ3)
-\end{enumerate}
-
-We also evaluate FedID, a federated learning framework using XGBoost that eliminates testing overhead. Finally, we formulate a novel extension called Dynamic and Resilient FedID (DR-FedID) for future iterations.
+Topological placement dictates detection efficacy. This paper evaluates three structural placement paradigms analyzed by Y{\i}lmaz et al.~\cite{yilmaz2025exploring}: root-only analysis, multi-node telemetry forwarding, and distributed alarm voting. We investigate three core questions. First, how rapidly does centralized detection degrade as malicious nodes move down the routing tree? (RQ1) Second, what monitor density is required to restore full visibility, and what transmission overhead does it impose on 802.15.4 links? (RQ2) Third, can local voting consensus suppress false alarms without saturating low-bandwidth channels? (RQ3) We examine Federated Intrusion Detection with XGBoost to eliminate testing traffic, and formulate dynamic monitor shuffling with Byzantine filtering for future deployment iterations.
 
 \section{Related Work}
-Many researchers have studied machine learning for IoT intrusion detection. Verma and Ranga~\cite{verma2019elnids} built ensemble classifiers for RPL attacks. Napiah et al.~\cite{napiah2018compression} proposed CHA-IDS to inspect compressed 6LoWPAN headers. Shukla~\cite{shukla2017mlids} used K-means and decision trees to detect wormhole attacks. While these systems achieved high reported scores, they all relied on centralized packet collection.
+Machine learning models for IoT security are widely documented. Verma and Ranga~\cite{verma2019elnids} applied ensemble learners to RPL traces, while Napiah et al.~\cite{napiah2018compression} classified compressed 6LoWPAN headers using decision trees. Shukla~\cite{shukla2017mlids} identified wormholes through K-means clustering. These proposals presuppose centralized data collection where all telemetry aggregates at the border router. Raza et al.~\cite{raza2013securing} showed that continuous feature forwarding exhausts node power and floods constrained channels. Distributed trust schemes mitigate collection bottlenecks by delegating evaluation to neighboring motes~\cite{khan2017trust}, \cite{medjek2017trust}. Computing neighbor trust tables incurs high local memory overhead on MSP430 chips.
 
-Sending all raw network packets to a central root node causes major issues in lossy networks. Raza et al.~\cite{raza2013securing} noted that transmitting continuous feature vectors quickly drains node batteries and congests 802.15.4 wireless channels. Distributed trust systems offer one alternative~\cite{khan2017trust}, \cite{medjek2017trust}. In these systems, neighbor nodes monitor each other. But computing trust tables on small microcontrollers takes up valuable memory and compute cycles.
-
-Federated Learning (FL) offers a promising middle ground~\cite{mcmahan2017communication}. Instead of streaming raw telemetry, nodes train local models on their own data and only share model parameters with the root. While FL has been applied to general IoT tasks~\cite{abbas2023fl}, its behavior in multi-hop RPL topologies was not clearly understood until the recent study by Y{\i}lmaz et al.~\cite{yilmaz2025exploring}. Our project builds directly on their empirical findings.
+Federated learning avoids central raw data aggregation. McMahan et al.~\cite{mcmahan2017communication} demonstrated federated averaging across distributed clients, and Abbas et al.~\cite{abbas2023fl} adapted the technique to general IoT networks. Multi-hop RPL networks exhibit distinct spatial characteristics. Sub-root nodes handle transit flows from dozens of downstream children, whereas leaf nodes process only localized telemetry. This creates non-identical data distributions across network tiers. Y{\i}lmaz et al.~\cite{yilmaz2025exploring} quantified these non-IID placement effects using tree-based federated averaging, providing the empirical foundation for our evaluation.
 
 \begin{figure}[!t]\centering
 \begin{tikzpicture}[node distance=3.2mm, font=\scriptsize,
@@ -113,42 +91,41 @@ Federated Learning (FL) offers a promising middle ground~\cite{mcmahan2017commun
 \section{Problem Formulation and Methodology}
 
 \subsection{Routing Protocol and Threat Formulation}
-RPL networks use four ICMPv6 control messages to maintain topology: DODAG Information Object (DIO) for downward route advertisement, DODAG Information Solicitation (DIS) to request DIOs, Destination Advertisement Object (DAO) for upward routes, and DAO-ACK. Each node calculates a scalar Rank value. Rank increases downward as nodes get further from the root.
-
-We examine seven insider attacks commonly found in RPL networks:
+RPL organizes nodes using ICMPv6 control messages. DODAG Information Objects advertise downward paths and Rank, DODAG Information Solicitations request immediate configuration updates, and Destination Advertisement Objects register upward routes. Rank increases monotonically downward from the root. We examine seven internal routing attacks executed across hierarchical levels:
 \begin{enumerate}
     \item \textbf{Decreased Rank (DR):} An attacker advertises a fake lower Rank. Downstream nodes switch to the attacker as their preferred parent, allowing it to intercept traffic.
     \item \textbf{Increased Version (IV):} An attacker sends out a higher DODAG version number. This forces the entire network to rebuild its routing tree, wasting energy.
-    \item \textbf{Blackhole (BH):} The compromised node simply drops every data packet it receives.
-    \item \textbf{Selective Forwarding (SF):} The attacker drops some packets while forwarding others, making detection harder.
-    \item \textbf{DIS Flooding (DI):} The attacker continuously broadcasts DIS probes. This forces neighbor nodes to reset their Trickle timers and reply with DIOs, draining battery power.
+    \item \textbf{Blackhole (BH):} The compromised node drops 100\% of forwarded packets.
+    \item \textbf{Selective Forwarding (SF):} The attacker drops a fraction of packets to evade detection.
+    \item \textbf{DIS Flooding (DI):} The attacker continuously broadcasts DIS probes, forcing neighbor nodes to reset Trickle timers and reply with DIOs.
     \item \textbf{DIO Flooding (HF):} Bogus DIO broadcasts overwhelm local radio buffers.
-    \item \textbf{Wormhole (WP):} Two colluding nodes tunnel packets over an out-of-band link, distorting the routing graph.
+    \item \textbf{Wormhole (WP):} Colluding nodes tunnel packets over out-of-band links to distort routing paths.
 \end{enumerate}
 
 \subsection{Architectural Placement Models}
-We evaluate three placement strategies across the DODAG:
+Three placement architectures define the evaluation space:
 \begin{itemize}
-    \item \textbf{CIDwL (Central Local):} The IDS runs only on the root node (ID 0). It uses only local traffic seen by the root:
+    \item \textbf{CIDwL (Central Local):} Detection runs exclusively on the root border router using local promiscuous packet capture:
     \begin{equation}
         \hat{y}_{t} = \mathcal{M}_{\text{root}}(X_{\text{root}, t})
     \end{equation}
-    \item \textbf{CIDwG (Central Global):} The classifier runs at the root, but $K$ collaborator nodes placed across different depths extract 35 features every 60 seconds and forward them upward to the root:
+    \item \textbf{CIDwG (Central Global):} $K$ collaborator nodes across the DODAG extract 35 routing features every 60 seconds and transmit them upward to the root:
     \begin{equation}
         \hat{y}_{t} = \mathcal{M}_{\text{root}}\left(X_{\text{root}, t} \cup \bigcup_{k=1}^K X_{k, t}\right)
     \end{equation}
-    \item \textbf{DCID (Distributed Collaborative):} Each monitor $k$ independently extracts features, runs local inference, and raises a 1-bit alarm $a_k \in \{0, 1\}$. Alarms are aggregated at the root under voting threshold $\theta$:
+    \item \textbf{DCID (Distributed Collaborative):} Each monitor extracts features locally, generates a binary alarm, and transmits one vote to the root:
     \begin{equation}
         \hat{y}_{\text{global}} = \mathbf{1}\left(\frac{1}{K}\sum_{k=1}^K a_k \ge \theta\right)
     \end{equation}
+    The root triggers an alarm when the positive vote proportion meets threshold $\theta$.
 \end{itemize}
 
 \subsection{Federated Intrusion Detection (FedID)}
-FedID~\cite{yilmaz2025exploring} replaces raw data streaming with parameter sharing. Collaborators train local XGBoost~\cite{chen2016xgboost} tree ensembles on their local traffic. The root aggregates the tree parameters using Federated Averaging (FedAvg):
+FedID replaces feature transmission with parameter aggregation. Collaborators train local XGBoost~\cite{chen2016xgboost} tree ensembles on local feature windows. The root computes the weighted average of tree split parameters via Federated Averaging:
 \begin{equation}
     W_{\text{global}}^{t+1} = \sum_{k=1}^K \frac{n_k}{N} W_k^{t+1}
 \end{equation}
-Once trained, the global model runs on the root node. In testing, collaborator nodes do not send any packets ($O_{\text{comm}} = 0$).
+During inference, the global model executes at the root without requiring feature exchange from collaborator nodes. Communication cost during testing is zero ($O_{\text{comm}} = 0$).
 
 \begin{figure}[!t]
   \centering
@@ -166,8 +143,8 @@ Once trained, the global model runs on the root node. In testing, collaborator n
 
 \section{Data and Experimental Protocol}
 
-\subsection{Simulation Environment and Topologies}
-The simulations run in Cooja under Contiki OS 2.7. They emulate Zolertia Z1 motes with 16-bit MSP430 chips (8~KB RAM, 92~KB Flash) and CC2420 radios. As shown in Table~\ref{tab:sim_params}, 30 nodes are set up on a 100~m $\times$ 80~m grid over 10 DODAG levels. The radio uses the Unit Disk Graph Model (UDGM) with distance loss and a 25~m range. Nodes send periodic UDP packets to the sink every 15 seconds. Each scenario runs for 5 hours across 31,626 separate runs.
+\subsection{Simulation Environment and Hardware}
+Scenarios were simulated in Cooja under Contiki OS 2.7. The setup emulates 30 Zolertia Z1 nodes arranged in a 100~m by 80~m grid across 10 DODAG levels. Hardware specifications mirror MSP430 microcontrollers with 8~kB of RAM and 92~kB of flash (Table~\ref{tab:sim_params}). Radio links use the Unit Disk Graph Model with distance-based path loss and a 25~m transmission radius. Motes transmit UDP data to the sink every 15 seconds. Scenarios ran for 5 hours each across 31,626 distinct executions.
 
 \begin{table}[!t]
 \centering
@@ -191,18 +168,16 @@ Federated Framework & Flower (100 Federated Aggregation Rounds) \\
 \end{tabular}
 \end{table}
 
-\subsection{Feature Extraction and Non-IID Nature}
-We extract 35 network and routing features over 60-second sliding windows~\cite{yilmaz2021transfer}. These include counts of DIO, DIS, and DAO messages; packet drop ratios; rank changes; and inter-arrival times. Because nodes near the root forward traffic for entire subtrees while leaf nodes stay mostly quiet, the data distributions across nodes are naturally non-IID.
+\subsection{Feature Extraction and Non-IID Distribution}
+Features are extracted over 60-second sliding windows. The 35-dimensional feature vector records DIO, DIS, and DAO control counts, packet transmission ratios, drop frequencies, parent churn, and inter-arrival timing~\cite{yilmaz2021transfer}. Because root-adjacent nodes forward heavy aggregated traffic while leaf nodes remain idle, data distributions across tiers are non-IID.
 
-\subsection{Benchmark Dataset (CICIoT2023)}
-To verify how models perform on real hardware, Y{\i}lmaz et al.~\cite{yilmaz2025exploring} also tested them on the CICIoT2023 benchmark~\cite{neto2023ciciot2023}. This dataset has 33 attack types collected from a lab testbed with 105 real IoT devices.
+\subsection{Real-Time Benchmark Dataset (CICIoT2023)}
+The models were further evaluated on CICIoT2023~\cite{neto2023ciciot2023}. This dataset captures 33 IoT attack types across 105 physical devices, confirming performance on real-world edge hardware.
 
-\section{Experimental Results and Discussion}
+\section{Results and Discussion}
 
-\subsection{RQ1: Spatial Detection Degradation in CIDwL}
-Does a root-only IDS work for attacks deep in the network?
-Table~\ref{tab:cidwl_perf} shows the answer is clearly no. When an attacker is near the root (Level 1), Blackhole detection reaches 98.8\%. But as the attack moves further down, detection drops steadily. At Level 4, it falls to 79.3\%. At Level 8, it hits 51.5\%, which is barely better than a coin flip. The total degradation is 47.3\%.
-The physical reason is straightforward. A Blackhole drops packets silently. The root never receives those packets and therefore cannot detect the drop. Decreased Rank attacks show a similar drop, falling from 99.1\% down to 62.0\%. Root-only placement fails to protect downstream sensor nodes.
+\subsection{RQ1: Spatial Degradation in Centralized Monitoring (CIDwL)}
+Root monitoring fails against distant attacks. Table~\ref{tab:cidwl_perf} and Fig.~\ref{fig:heatmap} document detection accuracy when the attacker relocates from Level 1 to Level 9. When a Blackhole attacker resides at Level 1, detection reaches 98.8\%. At Level 8, Blackhole accuracy collapses to 51.5\%, representing a 47.3\% performance loss. Because dropped packets never reach the root, the border router has no telemetry to inspect. Selective Forwarding reaches only 58.0\% recall across all depths. DIS Flooding accuracy drops from 96.7\% at Level 1 to 50.3\% at Level 9 due to localized Trickle resets. Conversely, Increased Version attacks maintain 99.3\% accuracy at all depths because version churn propagates network-wide. Answering RQ1, single-root monitoring is structurally incapable of securing multi-hop topologies against downstream attacks.
 
 \begin{figure}[!t]
   \centering
@@ -230,9 +205,8 @@ Wormhole (WP) & 0.927 & 0.517 & 0.510 & 0.522 & 0.493 & 0.433 \\
 \end{tabular}
 \end{table}
 
-\subsection{RQ2: Monitor Density in CIDwG}
-In CIDwG, distributed nodes send feature vectors up to the root. As shown in Fig.~\ref{fig:cidwl_vs_cidwg}, adding more monitors helps: Blackhole detection rises from 78.3\% with 2 monitors to 99.4\% with 9 monitors. False alarms drop from 22.2\% to 0.3\%.
-To achieve full network coverage, we need \textbf{at least one monitor on every DODAG level}. But sending 35 features per minute from 9 nodes generates 378~kB of traffic per round, which congests the 250~kbps wireless channel.
+\subsection{RQ2: Optimal Monitor Density Across Levels (CIDwG)}
+Deploying distributed monitors restores visibility. As plotted in Fig.~\ref{fig:cidwl_vs_cidwg}, Blackhole detection improves from 78.3\% with 2 monitors to 99.4\% with 9 monitors. False positive rates decrease from 22.2\% to 0.3\%. Hello Flooding achieves 100\% true positive rate with 0.3\% false alarms under 9 monitors. Answering RQ2, complete coverage requires at least one monitor per DODAG level. However, each monitor streaming 35 features per minute generates 378~kB of traffic per interval across 9 hops. This volume saturates low-power 802.15.4 links and drains node batteries.
 
 \begin{figure}[!t]
   \centering
@@ -249,13 +223,10 @@ To achieve full network coverage, we need \textbf{at least one monitor on every 
 \end{figure}
 
 \subsection{RQ3: Distributed Consensus Voting (DCID)}
-In DCID, nodes run local models and send only 1-bit alarm flags to the root. This cuts communication down to 2,700 bytes, saving 99.3\% bandwidth compared to CIDwG.
-As shown in Fig.~\ref{fig:dcid_voting}, a \textbf{50\% majority threshold} works best. It catches 80.5\% of Blackholes and 99.8\% of Increased Version attacks with a low 2.1\% false alarm rate.
-Majority voting (50\%) gives the best balance between low false alarms and reliable detection.
+DCID reduces bandwidth by transmitting 1-bit alarm tokens. Total communication drops to 2,700 bytes per round, representing a 99.3\% reduction relative to CIDwG. Fig.~\ref{fig:dcid_voting} illustrates detection performance across voting thresholds from 10\% to 90\%. Low thresholds produce excessive false alarms, reaching 18.5\% at $\theta = 0.10$. High thresholds suppress detection, yielding only 51.0\% recall at $\theta = 0.90$. A 50\% majority threshold achieves the optimal trade-off, delivering 80.5\% Blackhole accuracy with a 2.1\% false positive rate. Answering RQ3, majority voting provides practical collaborative detection while preserving channel capacity.
 
-\subsection{FedID Performance and Data Sharing}
-FedID trains XGBoost models locally over 100 federated rounds. Without data sharing ($S=0\%$), non-IID traffic causes models to diverge. For Blackhole attacks, cosine similarity drops to 0.19.
-Sharing a small 10\% slice of local data fixes this problem (Fig.~\ref{fig:model_divergence}). At $S=10\%$, cosine similarity exceeds 0.90 across all attacks. Blackhole detection reaches 95.7\% (Table~\ref{tab:fedid_accuracy} and Fig.~\ref{fig:comparison_accuracy}). Best of all, FedID requires \textbf{zero bytes of network communication during testing}.
+\subsection{FedID Performance and Non-IID Resolution}
+FedID eliminates runtime packet transmissions entirely. Training local XGBoost models without data sharing ($S=0\%$) causes severe parameter divergence due to non-IID traffic distributions across DODAG tiers. Cosine similarity between local models drops to 0.19 for Blackhole scenarios, yielding 84.1\% accuracy. Sharing a 10\% sample slice ($S=10\%$) raises cosine similarity above 0.90 across all attack classes. Table~\ref{tab:fedid_accuracy} confirms that $S=10\%$ increases Blackhole detection to 95.7\%, Selective Forwarding to 82.4\%, and Hello Flooding to 98.0\%. Higher sharing ratios yield marginal gains while increasing transmission cost during training. On the CICIoT2023 dataset, FedID achieves 99.60\% binary accuracy and 98.80\% multiclass accuracy, surpassing centralized MLP (70.53\%) and LSTM (93.13\%) baselines (Table~\ref{tab:ciciot_bench}).
 
 \begin{figure}[!t]
   \centering
@@ -306,20 +277,19 @@ Wang et al. (2023) & Centralized LSTM & N/A & 93.13\% \\
 \end{tabular}
 \end{table}
 
-\section{Benchmark on CICIoT2023}
-To test whether these models generalize beyond simulated RPL traces, Y{\i}lmaz et al.~\cite{yilmaz2025exploring} benchmarked FedID on the CICIoT2023 dataset~\cite{neto2023ciciot2023}. This dataset includes 33 attack types recorded in a physical IoT testbed with 105 devices.
-As shown in Table~\ref{tab:ciciot_bench}, FedID achieves 99.60\% accuracy on binary attack detection and 98.80\% on multiclass classification across 33 attack types. This confirms that XGBoost with federated averaging scales effectively to large, diverse IoT traffic datasets.
-
-\section{Limitations and Attack Realities}
-Even with strong results, FedID has three clear weaknesses in practice:
-\begin{enumerate}
-    \item \textbf{Fixed Monitor Locations:} Monitors stay in the same place. If an attacker identifies where monitors are, it can move its attacks to unmonitored branches.
-    \item \textbf{Tree Depth vs. Communication:} Deeper XGBoost trees improve accuracy, but they produce more parameters ($2^d$ leaves) to transmit during training.
-    \item \textbf{Poisoning Attacks:} FedAvg assumes every node is honest. If a node is compromised, it can send bad model updates and ruin the global model.
-\end{enumerate}
+\section{Limitations and Remaining Research}
+Three engineering bottlenecks constrain FedID deployment. First, static monitor placement creates fixed blind spots that adaptive adversaries can exploit by migrating attacks to unmonitored subtrees. Second, deeper XGBoost trees improve decision boundaries but increase model exchange size exponentially with depth ($2^d$ parameters). Third, standard federated averaging assumes honest collaborators, leaving the aggregation engine vulnerable to poisoned model updates from captured insider nodes.
 
 \section{Proposed Novelty for Upcoming Iterations: DR-FedID}
-To address these weaknesses, we designed and simulated \textbf{Dynamic and Resilient FedID (DR-FedID)} (Fig.~\ref{fig:novelty_arch}):
+We design and simulate Dynamic and Resilient FedID (DR-FedID) to address these vulnerabilities (Fig.~\ref{fig:novelty_arch}). First, Dynamic Adaptive Monitor Shuffling (DA-FedID) rotates monitoring roles among peer nodes when local routing churn exceeds an entropy threshold. In our simulations, dynamic rotation raised detection against a relocating adversary from 72.00\% to 86.15\%, an improvement of 14.15\%. Second, Multi-Krum aggregation protects the border router from model poisoning attacks. The root computes pairwise Euclidean distances between parameter vectors, selecting candidates nearest the geometric median:
+\begin{equation}
+    \text{Krum}(v_1, \dots, v_n) = \arg\min_{i} \sum_{i \to j} ||v_i - v_j||^2
+\end{equation}
+Under a simulated poisoning attack, baseline FedAvg accuracy collapsed to 56.19\%. Multi-Krum aggregation rejected the corrupted update, restoring accuracy to 67.96\% to match the clean baseline. Third, Local Differential Privacy replaces raw data sharing by adding calibrated Gaussian noise to sparsified weight vectors:
+\begin{equation}
+    \tilde{w}_i = \text{Sparsify}(w_i) + \mathcal{N}\left(0, \frac{2\ln(1.25/\delta)\Delta^2}{\epsilon^2}\right)
+\end{equation}
+This guarantees formal privacy without exposing packet payloads.
 
 \begin{figure}[!t]
   \centering
@@ -327,23 +297,6 @@ To address these weaknesses, we designed and simulated \textbf{Dynamic and Resil
   \caption{Proposed DR-FedID novelty architecture for upcoming iterations.}
   \label{fig:novelty_arch}
 \end{figure}
-
-\subsection{Dynamic Adaptive Monitor Shuffling (DA-FedID)}
-Nodes track local routing churn and remaining battery power. When churn passes a threshold, monitoring duties rotate to a neighbor. In our tests, this rotation raised detection against a moving attacker from 72.00\% to 86.15\% (+14.15\% improvement).
-
-\subsection{Multi-Krum Byzantine Defense}
-To stop poisoned updates, the root uses Multi-Krum~\cite{blanchard2017machine}. It measures Euclidean distances between weight updates:
-\begin{equation}
-    \text{Krum}(v_1, \dots, v_n) = \arg\min_{i} \sum_{i \to j} ||v_i - v_j||^2
-\end{equation}
-It selects the updates closest to the geometric center and discards outliers that deviate by more than 2.5 standard deviations. In our simulation of a poisoning attack, standard FedAvg fell to 56.19\%. Multi-Krum restored accuracy to 67.96\%, matching the clean baseline.
-
-\subsection{Local Differential Privacy (LDP)}
-Rather than sharing raw 10\% sample data, nodes add calibrated Gaussian noise to sparsified weight updates:
-\begin{equation}
-    \tilde{w}_i = \text{Sparsify}(w_i) + \mathcal{N}\left(0, \frac{2\ln(1.25/\delta)\Delta^2}{\epsilon^2}\right)
-\end{equation}
-This gives formal $(\epsilon, \delta)$-differential privacy and keeps raw data private.
 
 \begin{figure}[!t]
   \centering
@@ -353,19 +306,13 @@ This gives formal $(\epsilon, \delta)$-differential privacy and keeps raw data p
 \end{figure}
 
 \section{Reproducibility}
-All simulation code, parameter files, graph scripts, and LaTeX files are available on GitHub:
+Simulation code, dataset schemas, plotting scripts, and LaTeX sources are available on GitHub:
 \url{https://github.com/mdilyas-27/cns_project_team_19}.
 
-The repository contains:
-\begin{itemize}
-    \item \file{src/simulate_dr_fedid.py}: Simulates Byzantine poisoning, Multi-Krum defense, and dynamic monitor rotation.
-    \item \file{src/evaluate_architectures.py}: Benchmarks CIDwL, CIDwG, DCID, and FedID against simulation data.
-    \item \file{src/generate_result_graphs.py}: Generates all figures used in this report.
-    \item \file{configs/simulation_params.yaml}: Network and algorithm parameters.
-\end{itemize}
+All experiments used deterministic random seeds and Contiki 2.7 parameters to ensure exact reproducibility. Scripts include \file{src/simulate_dr_fedid.py} for Byzantine defense and monitor shuffling, \file{src/evaluate_architectures.py} for placement benchmarks, and \file{src/generate_result_graphs.py} for plot generation.
 
 \section{Conclusion}
-In this course project, we showed that IDS placement in RPL networks is just as important as the classification algorithm itself. Centralized root monitoring cannot see downstream attacks, while continuous global telemetry quickly overwhelms constrained wireless links. Federated learning (FedID) provides an effective balance: it delivers high detection accuracy with zero testing communication overhead. To address evasive attackers and model poisoning, we proposed and simulated DR-FedID, which adds dynamic monitor shuffling and Multi-Krum aggregation. In future work, we plan to test these mechanisms on physical sensor hardware in the FIT IoT-LAB testbed.
+IDS placement dictates detection efficacy in multi-hop RPL networks. Root monitoring fails against localized downstream attacks, whereas continuous telemetry streaming saturates lossy wireless channels. Federated learning reconciles this conflict by executing autonomous inference with zero testing traffic. Sharing a 10\% sample slice resolves non-IID gradient drift across hierarchy tiers. DR-FedID extends this foundation with dynamic monitor shuffling to counter evasive adversaries and Multi-Krum aggregation to neutralize poisoned updates. Future work will evaluate these mechanisms on physical Cortex-M3 nodes in the FIT IoT-LAB testbed.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
