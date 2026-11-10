@@ -8,7 +8,7 @@
 
 This repository contains the simulation code, evaluation benchmarks, result graph generators, Beamer presentation, and IEEE Transactions LaTeX manuscript for the course project in **Computer Networks and Security (CNS)** at the **Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)**.
 
-### Team Members (Team 19):
+### Team Members:
 - **Mohammadilyas Patel** (Roll No: `CS23B1078`) — `cs23b1078@iiitdm.ac.in`
 - **Shaik Sifat Ahmed** (Roll No: `CS23B1035`) — `cs23b1035@iiitdm.ac.in`
 - **Abhinay** (Roll No: `CS23I1009`) — `cs23i1009@iiitdm.ac.in`
