@@ -107,7 +107,7 @@ def generate_all_plots(output_dir="figures"):
 
     fig, ax1 = plt.subplots(figsize=(5.5, 3.5))
     color = '#1f77b4'
-    ax1.set_xlabel("Consensus Voting Threshold ($\Theta$)")
+    ax1.set_xlabel(r"Consensus Voting Threshold ($\Theta$)")
     ax1.set_ylabel("Detection Accuracy", color=color)
     line1 = ax1.plot(thresholds, acc_dcid, marker='o', color=color, linewidth=2, label="Detection Accuracy")
     ax1.tick_params(axis='y', labelcolor=color)
