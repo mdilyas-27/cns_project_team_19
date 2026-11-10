@@ -1,306 +1,385 @@
 \documentclass[conference]{IEEEtran}
 
 \usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb,booktabs,graphicx,array}
-\usepackage{xurl}
+\usepackage{amsmath,amssymb,booktabs,graphicx,array,xurl}
+\usepackage{cite}
+\usepackage{subcaption}
 \usepackage[hidelinks]{hyperref}
-\usepackage{listings}
-\usepackage{xcolor}
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning}
-\graphicspath{{images/}}
-\newcommand{\file}[1]{\path{#1}}
-\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,columns=fullflexible,
- keepspaces=true,showstringspaces=false,frame=single}
 
-\usepackage{placeins}
+\begin{document}
 
-\newcommand{\ProjectAuthorNames}{Mohammadilyas Patel, Shaik Sifat Ahmed, Abhinay}
-\newcommand{\ProjectInstitution}{Indian Institute of Information Technology,\\Design and Manufacturing, Kancheepuram}
-\newcommand{\ProjectLocation}{Chennai 600127, India}
-\newcommand{\ProjectTeam}{Team 19}
-\newcommand{\ProjectRepo}{https://github.com/mdilyas-27/cns_project_team_19}
-
-\hypersetup{pdfauthor={\ProjectAuthorNames},pdftitle={Exploring and Enhancing Placement of Intrusion Detection Systems in RPL: A Federated Learning-Based Approach}}
-
-\title{Exploring and Enhancing Placement of Intrusion Detection Systems in RPL: A Federated Learning-Based Approach}
+\title{IDS Placement in RPL Networks: Project Results,\\Code Audit, and a Synthetic DR-FedID Prototype}
 
 \author{
-    \IEEEauthorblockN{Mohammadilyas Patel}
+    \IEEEauthorblockN{Mohammadilyas Patel, Shaik Sifat Ahmed, and Abhinay}
     \IEEEauthorblockA{
-        cs23b1078@iiitdm.ac.in\\
-        Dept. of CSE, Team 19\\
-        IIITDM Kancheepuram\\
-        Chennai 600127, India
-    }
-    \and
-    \IEEEauthorblockN{Shaik Sifat Ahmed}
-    \IEEEauthorblockA{
-        cs23b1035@iiitdm.ac.in\\
-        Dept. of CSE, Team 19\\
-        IIITDM Kancheepuram\\
-        Chennai 600127, India
-    }
-    \and
-    \IEEEauthorblockN{Abhinay}
-    \IEEEauthorblockA{
-        cs23i1009@iiitdm.ac.in\\
-        Dept. of CSE, Team 19\\
-        IIITDM Kancheepuram\\
-        Chennai 600127, India
+        CS23B1078, CS23B1035, CS23I1009\\
+        Department of Computer Science and Engineering\\
+        IIITDM Kancheepuram, India
     }
 }
 
-\begin{document}
 \maketitle
 
 \begin{abstract}
-Where should an intrusion detection engine actually sit inside a multi-hop RPL wireless mesh? Most published papers benchmark machine learning classifiers assuming a central sink inspects all packets. In real low-power deployments, that assumption fails. Packets dropped or tampered with eight hops away never reach the border router. In this course project, we analyze 31,626 Cooja simulation traces across a 10-level grid of Zolertia Z1 motes to study this placement dilemma. Our experiments show that placing an IDS only at the root (CIDwL) leaves downstream nodes completely exposed. For Blackhole attacks, detection accuracy collapses from 98.8\% at hop 1 down to 51.5\% at hop 8. Enlisting 9 distributed monitors (CIDwG) restores detection to 99.4\%. However, forwarding 35 feature values every minute generates 378~kB of telemetry per round. This load severely congests the 250~kbps 802.15.4 channel. To resolve this trade-off, we implement Federated Intrusion Detection (FedID). Motes train local XGBoost models and share only tree split weights. During testing, FedID requires zero bytes of communication. Sharing a modest 10\% slice of local data corrects non-IID traffic skew across network tiers, achieving 95.7\% Blackhole detection on RPL data and 99.60\% accuracy on the CICIoT2023 benchmark. Finally, we propose and simulate DR-FedID for upcoming iterations. DR-FedID rotates monitors dynamically to catch relocating attackers, raising detection from 72.00\% to 86.15\%. It also applies Multi-Krum aggregation to neutralize poisoned updates, restoring accuracy from 56.19\% back to 67.96\%.
+The location of an intrusion detection system (IDS) affects what it can observe in a low-power RPL network. This report examines four placement and learning approaches presented in a course project: root-only monitoring (CIDwL), centralized collection from distributed monitors (CIDwG), distributed alarm voting (DCID), and federated intrusion detection (FedID). We compare the team's repository with its report claims and with the cited placement study. The evaluation and plotting scripts contain numerical arrays rather than a runnable Cooja experiment or a FedID training pipeline. Their stored values show a decline in root-only Blackhole accuracy from 0.988 at Level 1 to 0.515 at Level 8, while nine CIDwG monitors are assigned 0.994 accuracy and 378,000 bytes per round. The FedID table lists 0.957 accuracy at a 10\% sharing ratio and zero testing bytes. Separately, the DR-FedID program generates synthetic data and produces seeded outputs, including 67.96\% accuracy for its routine labeled Multi-Krum and a mean detection rate of 86.15\% under its monitor-rotation heuristic. These are prototype results, not network measurements. We document the evidence behind each number, identify conflicts between scripts and figures, and outline what is needed for a full reproduction.
 \end{abstract}
 
 \begin{IEEEkeywords}
-RPL, Low-Power and Lossy Networks, Intrusion Detection System, Placement Strategy, Federated Learning, XGBoost, Non-IID Traffic, Byzantine Resilience.
+RPL, intrusion detection, IDS placement, federated learning, reproducibility, synthetic evaluation.
 \end{IEEEkeywords}
 
 \section{Introduction}
-When deploying low-power wireless meshes for environmental monitoring or industrial telemetry, network engineers face severe hardware constraints. The sensor motes in these networks---such as the Zolertia Z1 or TelosB platforms---typically feature 16-bit MSP430 microcontrollers, only 8 to 10~kB of RAM, and low-rate CC2420 radio chips operating over IEEE 802.15.4 at a peak bitrate of 250~kbps. Batteries must last for years. Routing in these networks is governed by the Routing Protocol for Low-Power and Lossy Networks (RPL, RFC 6550)~\cite{alexander2012rpl}, which builds a destination-oriented directed acyclic graph (DODAG) rooted at a 6LoWPAN border router (6LBR). Links remain notoriously lossy.
+Internet of Things deployments often rely on small battery-powered devices that exchange short messages over lossy links. Routing in these networks can be disrupted by compromised devices that still hold valid network credentials. A detector at the border router may observe traffic arriving at the root, but it cannot directly inspect a packet that an intermediate node discarded. The placement of an IDS is therefore part of the security design, alongside the classifier and the features it receives.
 
-While link-layer cryptographic mechanisms protect against unauthorized external nodes, they offer little defense against compromised insider motes. An adversary holding valid cryptographic keys can easily falsify routing advertisements or drop forwarded application packets without violating link-layer checks. To detect such misbehavior, researchers have proposed numerous machine learning and deep learning intrusion detection systems (IDS). However, existing research exhibits a recurring oversight: studies almost universally assume an idealized central observer with complete visibility across all network traffic. That assumption fails in practice.
+The Routing Protocol for Low-Power and Lossy Networks (RPL) builds a destination-oriented directed acyclic graph (DODAG) rooted at a border router. Nodes select parents and advertise a rank that reflects their position in the graph~\cite{winter2012rpl}. Attacks can target this control plane or the data plane. A malicious mote can advertise an artificially attractive rank, trigger a version change, selectively drop traffic, or flood control messages. A taxonomy of RPL attacks describes these and related threats~\cite{mayzaud2016taxonomy}. Their visibility depends on where observations are collected: a root-only sensor, a network of telemetry monitors, and a set of local detectors do not receive the same evidence.
 
-In a physical multi-hop mesh, this central visibility does not exist. If a compromised node located seven hops from the sink silently drops packets, those dropped packets never reach the root. The border router observes only normal ambient traffic from its immediate neighbors. This creates a complete blind spot. The reasons are physical.
+Y{\i}lmaz, \c{S}en, and Aydo\u{g}an studied IDS placement in RPL and compared centralized, distributed, and federated approaches~\cite{yilmaz2025exploring}. The Team 19 project adopts similar research questions and includes code, figures, a parameter file, a presentation, and a paper. The repository's README describes Cooja experiments and a DR-FedID extension. However, the files do not all provide the same level of evidence: some scripts print arrays, some figures are built from constants, and the DR-FedID program generates its own synthetic samples.
 
-In this course project, we systematically evaluate three fundamental IDS placement architectures originally analyzed by Yilmaz, Sen, and Aydogan~\cite{yilmaz2025exploring}: root-only monitoring (CIDwL), multi-node feature streaming (CIDwG), and distributed alarm voting (DCID). We structure our investigation around three core research questions:
+This report has two aims. First, it explains the placement trade-offs represented by the project's numbers and figures. Second, it traces those results to the files that produce them, so that a reader can tell a published result from a stored summary or a synthetic prototype output. We address five questions:
+\begin{itemize}
+    \item How do the stored CIDwL values change as an attacker is placed farther from the root?
+    \item What accuracy and nominal byte totals does the CIDwG monitor-count table report?
+    \item How do the DCID threshold arrays trade detection accuracy against false-positive rate?
+    \item What relationship do the FedID summary arrays show between data sharing, cosine similarity, and Blackhole accuracy?
+    \item What does the DR-FedID script actually simulate, and how far do its outputs support the claims made for it?
+\end{itemize}
+
+The aim is not to reproduce the cited paper's experiments. We inspect repository commit \texttt{66647fb37a563b63da6d8707b4ec09f9607f803d}, run the provided summary and synthetic programs where possible, regenerate the plots in an isolated folder, and compare those outputs with the submitted figures. We do not have the per-run Cooja traces or the CICIoT2023 data split used for the reported benchmark values. Consequently, conclusions about those measurements remain limited to what the source study and the checked-in files state.
+
+\section{Background and Related Work}
+\subsection{RPL operation and attack visibility}
+RPL organizes routes as a DODAG. The root is typically connected to an IPv6 network through a 6LoWPAN border router, while forwarding nodes send child traffic upward toward that root. Each node maintains a preferred parent and a rank; the exact route selection depends on the objective function. The repository configuration names MRHOF and Contiki 2.7, but those entries describe intended settings and are not proof that a particular simulator run used them.
+
+The project's configuration lists seven attack labels. Decreased Rank (DR) attempts to attract descendants by advertising an artificially low rank. Increased Version (IV) changes the DODAG version, potentially causing repair activity. A Blackhole (BH) node drops forwarded packets, while Selective Forwarding (SF) drops only part of the traffic. DIS and DIO flooding target control-message handling. The Wormhole/P2P Bypass (WP) label covers a tunnel that makes distant nodes appear connected by a shorter path. These names describe attack scenarios, but the repository does not include packet traces or attack implementations that would let us inspect their timing and intensity.
+
+Earlier IDS work addresses related problems through different observation and classification choices. Verma and Ranga examine ensemble learning for RPL intrusion detection~\cite{verma2019elnids}; Napiah et al. describe a 6LoWPAN header analyzer~\cite{napiah2018compression}; and Shukla studies a machine-learning approach to wormhole detection~\cite{shukla2017mlids}. SVELTE is an example of a real-time IDS designed for constrained IoT networks~\cite{raza2013svelte}. Other cited work explores trust-based distributed detection~\cite{khan2017trust,medjek2017trust}. These systems motivate the placement question, but their results should not be treated as direct baselines unless they share the same topology, attack definitions, features, and evaluation split.
+
+\subsection{Federated learning and heterogeneous data}
+Federated averaging combines client updates while keeping each client's raw training examples local~\cite{mcmahan2017communication}. This can reduce central collection of features, although model updates still require communication during training. A zero-byte testing figure, therefore, says nothing about the cost of training rounds or model distribution. Nor does federated learning by itself prove a formal privacy guarantee.
+
+The project frames depth-dependent traffic differences as non-identically distributed (non-IID) data. This is plausible in a multi-hop graph: a node near the root may forward transit traffic for many descendants, while a leaf sees mostly its own flows. Federated optimization is known to be affected by heterogeneous client data~\cite{li2020federated}. The project stores cosine-similarity and accuracy values against a sharing ratio, but does not include the client datasets, model updates, or an executable FedID pipeline. The arrays can illustrate a claimed trend; they cannot establish how the trend was measured.
+
+The repository describes local XGBoost models and Flower-based aggregation. XGBoost is a gradient-boosted tree system~\cite{chen2016xgboost}, and Flower provides tooling for federated-learning experiments~\cite{beutel2020flower}. Neither package is invoked by the checked-in architecture evaluator. Thus the implementation audit below separates the method described in the paper from the code that is actually available.
+
+\section{Network Model and IDS Architectures}
+\subsection{Topology represented in the project}
+The configuration specifies 30 nodes arranged in a 10-by-3 grid and 10 DODAG depth levels. The topology drawing numbers nodes from 0 to 29 and shows parent arrows toward a root. A separate illustration highlights example monitor and attacker placements. These drawings communicate the intended setup; they are not snapshots from Cooja and do not provide link-quality or packet-loss measurements. Cooja and Contiki are appropriate tools for sensor-network simulation, but a runnable project and its configuration are needed to verify an experiment~\cite{osterlind2006cross,dunkels2004contiki}.
+
+\begin{table}[htbp]
+\centering
+\caption{SETTINGS DECLARED IN THE REPOSITORY CONFIGURATION.}
+\label{tab:settings}
+\begin{tabular}{p{2.2cm}p{5.6cm}}
+\toprule
+\textbf{Area} & \textbf{Declared setting} \\
+\midrule
+Network & 30 nodes; 10 depth levels; 10-by-3 grid \\
+Routing & RPL with MRHOF; IEEE 802.15.4 named \\
+Software & Contiki 2.7 and Cooja named \\
+Features & 60-second window; 35 routing/traffic features \\
+FedID & XGBoost; depth 6; 50 estimators; learning rate 0.1; sharing ratio 10\% \\
+DR-FedID & 120-second shuffle interval; Byzantine tolerance 2; epsilon 1.5, delta 0.00001 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:settings} summarizes the settings declared in \texttt{configs/simulation\_params.yaml}. The evaluation and graph scripts do not load this YAML file. We therefore refer to these entries as configuration declarations. They should not be read as a verified log of the environment used to generate the hard-coded results.
+
+\subsection{Placement and information flow}
+Four labels appear throughout the project. In CIDwL, a classifier at the root uses its own local observations. CIDwG adds monitors that send feature summaries to a central detector. In DCID, local monitors produce binary alarms and the root applies a voting rule. FedID is described as training models at multiple sites and aggregating model information rather than forwarding every feature at test time. The configurations and comparison script use these labels, but only the evaluator's fixed tables are implemented as executable summary logic.
+
+For DCID, the root can be described as raising an alarm when the mean of the monitors' binary alarm values reaches a chosen threshold, $\theta$. The code lists a fixed communication value of 2,700 bytes per round; it does not serialize alarms, account for headers or retransmissions, or derive that total from a packet capture.
+
+In federated averaging, the server combines each client update using a weight proportional to that client's number of training examples. In notation, client $k$'s update receives weight $n_k/N$, where $N$ is the total number of client examples. This explains the reported learning paradigm; the repository does not implement the calculation for XGBoost. A prose method description is not a substitute for the code, data partition, and aggregation rules needed to reproduce it.
+
+\begin{figure*}[htbp]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{fig1_network_topology.png}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{fig2_scenario_collaborators.png}
+\end{subfigure}
+\caption{Repository illustrations of the 30-node routing topology and example CIDwG/DCID placements. The diagrams describe the intended scenario; they do not constitute simulator output.}
+\label{fig:topologies}
+\end{figure*}
+
+\begin{table*}[htbp]
+\centering
+\caption{ARCHITECTURAL COMPARISON AS DESCRIBED IN THE PROJECT. VALUES ARE REPOSITORY SUMMARIES, EXCEPT WHERE THE METHOD IS ATTRIBUTED TO THE CITED STUDY.}
+\label{tab:arch_comparison}
+\begin{tabular}{p{1.8cm}p{3.2cm}p{3.4cm}p{3.2cm}p{3.8cm}}
+\toprule
+\textbf{Approach} & \textbf{Decision location} & \textbf{Information exchanged} & \textbf{Code-level cost entry} & \textbf{Evidence available} \\
+\midrule
+CIDwL & Root/6LBR & Root-local observations & 0 bytes in comparison summary & Fixed depth arrays \\
+CIDwG & Root with collaborators & Feature telemetry to root & 42,000 bytes per monitor per round & Fixed accuracy and byte arrays \\
+DCID & Local monitors and root & Binary alarms for a vote & 2,700 bytes per round & Fixed threshold and FPR arrays \\
+FedID & Distributed training; root inference described & Model information during training & 0 testing bytes in summary & Fixed similarity/accuracy arrays; no trainer \\
+DR-FedID & Adaptive placement/aggregation proposed & Synthetic updates and monitor scores in script & Not measured as a network cost & Seeded synthetic program; no LDP \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\section{Materials and Review Method}
+We reviewed the repository at commit \texttt{66647fb37a563b63da6d8707b4ec09f9607f803d}~\cite{patel2026repository}. The main files were \texttt{src/evaluate\_architectures.py}, \texttt{src/generate\_result\_graphs.py}, \texttt{src/simulate\_dr\_fedid.py}, and \texttt{configs/simulation\_params.yaml}. We also inspected the README, presentation and paper images. The similarly named files under \texttt{scripts/} match the three files under \texttt{src/} at this commit, but the graph images with the same filenames in \texttt{figures/} and \texttt{paper/images/} are not identical.
+
+We used four evidence labels in interpreting the material:
 \begin{enumerate}
-    \item \textit{RQ1:} How severely does centralized root monitoring degrade as the attacking node moves deeper into the DODAG hierarchy?
-    \item \textit{RQ2:} What minimum monitor density is required to restore full visibility, and what transmission load does it impose on 802.15.4 radio links?
-    \item \textit{RQ3:} Can local voting consensus suppress false alarms without overwhelming channel capacity?
-\end{enumerate}
-These questions guide our evaluation.
-
-Beyond evaluating these classical paradigms, we implement and test Federated Intrusion Detection (FedID), which replaces raw feature streaming with local XGBoost parameter exchanges, eliminating runtime packet overhead entirely. Testing communication is zero. We then propose and simulate a novel extension---Dynamic and Resilient FedID (DR-FedID)---incorporating routing-churn monitor rotation, Multi-Krum Byzantine aggregation, and Local Differential Privacy for upcoming project iterations.
-
-\section{Related Work}
-Over the past decade, many researchers have explored machine learning techniques to identify routing disruptions in RPL networks. For example, Verma and Ranga developed ELNIDS using ensemble classifiers~\cite{verma2019elnids}, while Napiah et al. designed decision trees to inspect compressed 6LoWPAN headers~\cite{napiah2018compression}. Shukla applied K-means clustering to localize wormhole attacks~\cite{shukla2017mlids}, and Airehrour et al. proposed trust-based forwarding mechanisms. Despite their varying classifiers, these systems share a common assumption: they rely on centralized feature collection at the border router.
-
-As Raza et al. demonstrated in their work on SVELTE~\cite{raza2013securing}, forwarding raw routing statistics across multiple hops quickly drains node batteries and leads to severe packet loss. While distributed trust schemes (such as those by Medjek et al.~\cite{medjek2017trust} and Khan et al.~\cite{khan2017trust}) offload evaluation to neighboring motes, maintaining neighbor trust tables consumes substantial memory on MSP430 motes.
-
-To overcome the communication bottleneck of centralized learning, federated learning (FL) has emerged as an attractive alternative. McMahan et al. introduced Federated Averaging (FedAvg) to train models across distributed devices without sharing private data~\cite{mcmahan2017communication}. Abbas et al. reviewed FL applications across IoT settings~\cite{abbas2023fl}. However, multi-hop RPL topologies introduce unique spatial challenges. Nodes adjacent to the 6LBR forward aggregated traffic from dozens of downstream children, whereas leaf nodes process only localized telemetry. This generates non-identical (non-IID) data distributions across network tiers. Yilmaz, Sen, and Aydogan~\cite{yilmaz2025exploring} addressed this problem by coupling federated averaging with tree-based XGBoost models and a local sample-sharing heuristic. Their study forms the empirical baseline for our work.
-
-\section{Problem Formulation and Methodology}
-\subsection{Routing Protocol and Threat Formulation}
-RPL establishes network topology through ICMPv6 control messages. DODAG Information Object (DIO) packets advertise downward routes and topological Rank. DODAG Information Solicitation (DIS) packets request configuration details from neighbors. Destination Advertisement Object (DAO) packets register upward paths toward the root. In normal operation, a node computes its Rank via the Minimum Rank with Hysteresis Objective Function (MRHOF) based on Expected Transmission Count (ETX), ensuring Rank increases monotonically with distance from the sink.
-
-We analyze seven prominent routing attacks executed across network tiers: Decreased Rank (DR), where an adversary advertises a false low Rank to capture parent status; Increased Version (IV), which forces global graph rebuilds; Blackhole (BH), dropping 100\% of forwarded traffic; Selective Forwarding (SF), dropping packets probabilistically; DIS Flooding (DI) and DIO Flooding (HF), which exhaust neighbor batteries through Trickle resets; and Wormhole (WP), which tunnels packets via out-of-band links.
-
-\subsection{Architectural Placement Models}
-We evaluate three distinct structural paradigms for placing the IDS engine. In Centralized with Local Information (CIDwL), detection runs exclusively on the root border router (ID: 0) using promiscuous packet capture:
-\begin{equation}
-    y_{\text{pred}}(t) = M_{\text{root}}(X_{\text{root}}(t))
-\end{equation}
-In Centralized with Global Information (CIDwG), $K$ distributed collaborator nodes across the DODAG extract 35 routing features every 60 seconds and forward them to the root:
-\begin{equation}
-    y_{\text{pred}}(t) = M_{\text{root}}([X_{\text{root}}(t), X_1(t), \dots, X_K(t)])
-\end{equation}
-In Distributed Collaborative IDS (DCID), every collaborator runs an independent local classifier, computes a binary alarm, and sends a 1-bit vote to the root:
-\begin{equation}
-    y_{\text{global}} = \mathbb{I}\left( \frac{1}{K} \sum_{k=1}^K a_k \ge \theta \right)
-\end{equation}
-The border router triggers an alarm if the fraction of positive votes meets threshold $\theta$.
-
-\subsection{Federated Intrusion Detection (FedID)}
-FedID replaces raw feature transmission with local model training and parameter aggregation. Collaborator motes train local XGBoost decision trees on their own 60-second traffic windows. The root server computes the weighted average of tree parameters:
-\begin{equation}
-    W_{\text{global}}(t+1) = \sum_{k=1}^K \frac{n_k}{N} W_k(t+1)
-\end{equation}
-During inference, each node executes the trained global model autonomously. Testing communication overhead is strictly zero.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{fig1_network_topology.png}
-  \caption{Evaluated 30-node multi-hop grid DODAG topology partitioned across 10 hierarchical levels (Hop 0 to 9) [3].}
-  \label{fig:topology}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{fig2_scenario_collaborators.png}
-  \caption{Collaborator deployment across DODAG levels for CIDwG and DCID configurations [3].}
-  \label{fig:collaborators}
-\end{figure}
-
-\section{Data and Experimental Protocol}
-\subsection{Simulation Environment and Hardware Specifications}
-All simulation runs were executed in Cooja within Contiki OS 2.7. The setup simulates 30 Zolertia Z1 sensor motes deployed across an 80~m $\times$ 100~m grid arranged in a 10-level hierarchy (Hops 0 to 9, shown in Fig.~\ref{fig:topology}). The motes emulate 16-bit MSP430 microcontrollers with 8~kB of RAM and 92~kB of ROM. Wireless channels use the Unit Disk Graph Model (UDGM) with distance-based path loss and a 25~m transmission radius. Motes send periodic UDP packets toward the sink every 15 seconds. The experimental dataset comprises 31,626 distinct 5-hour simulation runs. Table~\ref{tab:sim_params} summarizes the configuration parameters.
-
-\begin{table}[htbp]
-  \centering
-  \caption{SIMULATION CONFIGURATION PARAMETERS [3]}
-  \label{tab:sim_params}
-  \begin{tabular}{ll}
-    \toprule
-    \textbf{Parameter} & \textbf{Experimental Value} \\
-    \midrule
-    Network OS & Contiki OS 2.7 (Cooja Simulator) \\
-    Target Mote & Zolertia Z1 (MSP430, 8KB RAM) \\
-    Radio Model & UDGM: Distance Loss (25m TX range) \\
-    Topology Area & 100 m $\times$ 80 m Grid (30 nodes, 10 levels) \\
-    RPL Objective & MRHOF with ETX Link Metric \\
-    Traffic Pattern & Periodic UDP (1 packet per 15 s) \\
-    Simulation Run & 5 hours per scenario (31,626 runs) \\
-    Feature Window & 60-second sliding time windows \\
-    Baseline ML & Random Forest (Scikit-Learn, 10-fold CV) \\
-    FL Framework & Flower atop XGBoost ($\eta=0.3$, depth=6) \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\subsection{Feature Extraction and Non-IID Distribution}
-Features are computed over 60-second non-overlapping sliding windows. The resulting 35-dimensional feature vector captures control packet counts (DIO, DIS, DAO sent/received), packet transmission and drop ratios, Rank stability, and inter-arrival timing statistics. Because traffic volume scales with proximity to the sink, feature distributions vary dramatically across DODAG tiers, producing pronounced non-IID conditions.
-
-\subsection{Benchmark Validation on CICIoT2023}
-To verify that our models generalize beyond simulated RPL environments, we additionally evaluate performance on the real-world CICIoT2023 dataset~\cite{neto2023ciciot2023}. Collected across 105 physical IoT devices, this dataset covers 33 attack types grouped into 7 categories (DDoS, DoS, Recon, Web, Brute Force, Spoofing, Mirai).
-
-\section{Experimental Results and Discussion}
-\subsection{RQ1: Spatial Detection Degradation in CIDwL}
-When the IDS resides solely at the root node, detection capability degrades sharply as the attacker moves further away. Table~\ref{tab:cidwl} and Fig.~\ref{fig:heatmap} illustrate this effect. For a Blackhole attacker at Level 1, root detection achieves 98.8\% accuracy. When the attacker relocates to Level 8, Blackhole detection plummets to 51.5\%---a 47.3\% decline. The explanation is physical: because dropped packets never cross radio hops to the root, the border router has no data to inspect.
-
-Selective Forwarding detection remains poor across all depths (58.0\% at Level 1, 51.2\% at Level 9). DIS Flooding accuracy falls from 96.7\% to 50.3\% due to localized Trickle resets. In contrast, Increased Version attacks maintain 99.3\% accuracy at all depths because version churn propagates network-wide. In answer to RQ1, centralized root monitoring is structurally incapable of securing multi-hop meshes against downstream attacks.
-
-\begin{table}[htbp]
-  \centering
-  \caption{CIDWL DETECTION ACCURACY AT ROOT NODE (ID:0) [3]}
-  \label{tab:cidwl}
-  \begin{tabular}{ccccccc}
-    \toprule
-    \textbf{Atk} & \textbf{L1} & \textbf{L3} & \textbf{L5} & \textbf{L7} & \textbf{L9} & \textbf{Max Drop} \\
-    \midrule
-    BH & 0.988 & 0.533 & 0.530 & 0.540 & 0.562 & 0.473 \\
-    SF & 0.580 & 0.528 & 0.540 & 0.508 & 0.512 & 0.075 \\
-    DI & 0.967 & 0.557 & 0.520 & 0.570 & 0.503 & 0.495 \\
-    DR & 0.500 & 0.568 & 0.535 & 0.528 & 0.538 & 0.132 \\
-    HF & 1.000 & 0.802 & 0.582 & 0.592 & 0.553 & 0.483 \\
-    IV & 0.998 & 1.000 & 0.998 & 0.997 & 0.993 & 0.007 \\
-    WP & 0.927 & 0.517 & 0.510 & 0.522 & 0.493 & 0.433 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{fig3_detection_accuracy_heatmap.png}
-  \caption{Heatmap of detection accuracy vs. attacker position (x-axis) vs. IDS monitor position (y-axis) under CIDwL [3].}
-  \label{fig:heatmap}
-\end{figure}
-
-\subsection{RQ2: Optimal Monitor Density Across Levels (CIDwG)}
-Distributing monitor nodes restores visibility across all tiers. As shown in Fig.~\ref{fig:cidwg}, Blackhole detection improves from 78.3\% with 2 monitors to 99.4\% with 9 monitors, while false positive rates drop from 22.2\% to 0.3\%. Hello Flooding reaches 100\% true positive rate with 9 monitors. In answer to RQ2, complete coverage requires at least one monitor per DODAG level. However, streaming 35 features per minute from 9 nodes generates 378~kB of traffic per evaluation window, saturating the 250~kbps channel and draining batteries.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{fig4_cidwl_vs_cidwg_accuracy.png}
-  \caption{Overall accuracy: CIDwL baseline vs. CIDwG with 2 to 9 distributed monitors [3].}
-  \label{fig:cidwg}
-\end{figure}
-
-\subsection{RQ3: Distributed Consensus Voting (DCID)}
-DCID avoids heavy feature streaming by transmitting 1-bit alarm tokens, cutting total communication to 2,700 bytes per round (a 99.3\% reduction over CIDwG). Fig.~\ref{fig:dcid} shows performance across voting thresholds ($\theta = 0.10$ to $0.90$). A low threshold ($\theta = 0.10$) generates 18.5\% false alarms, while a high threshold ($\theta = 0.90$) drops detection to 51.0\%. A 50\% majority threshold ($\theta = 0.50$) achieves the optimal Pareto balance, yielding 80.5\% Blackhole detection with a 2.1\% false positive rate. Answering RQ3, majority voting offers an efficient trade-off between communication cost and detection reliability.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{fig5_dcid_varying_nodes_accuracy.png}
-  \caption{DCID overall accuracy across attack types with 2 to 9 participating nodes under 50\% majority voting [3].}
-  \label{fig:dcid}
-\end{figure}
-
-\subsection{FedID Performance and Non-IID Resolution}
-FedID eliminates runtime message overhead during testing. When training local XGBoost models without data sharing ($S=0\%$), gradient drift across DODAG tiers causes cosine similarity between models to drop to 0.19, resulting in 84.1\% Blackhole accuracy. Sharing a modest 10\% local sample slice ($S=10\%$) raises model cosine similarity above 0.90 across all attack types (Fig.~\ref{fig:divergence}). As reported in Table~\ref{tab:fedid}, $S=10\%$ increases Blackhole detection to 95.7\%, Selective Forwarding to 82.4\%, and Hello Flooding to 98.0\%. On CICIoT2023, FedID attains 99.60\% binary and 98.80\% multiclass accuracy, surpassing centralized MLP (70.53\%) and LSTM (93.13\%) baselines (Table~\ref{tab:ciciot}).
-
-\begin{table}[htbp]
-  \centering
-  \caption{FEDID DETECTION ACCURACY ACROSS SHARING RATIOS VS CIDWL [3]}
-  \label{tab:fedid}
-  \begin{tabular}{ccccc}
-    \toprule
-    \textbf{Attack} & \textbf{FedID (0\%)} & \textbf{FedID (5\%)} & \textbf{FedID (10\%)} & \textbf{CIDwL} \\
-    \midrule
-    BH & 0.841 & 0.918 & 0.957 & 0.621 \\
-    SF & 0.641 & 0.741 & 0.824 & 0.550 \\
-    DI & 0.701 & 0.806 & 0.870 & 0.647 \\
-    DR & 0.640 & 0.741 & 0.826 & 0.548 \\
-    HF & 0.882 & 0.963 & 0.980 & 0.683 \\
-    IV & 1.000 & 1.000 & 1.000 & 0.998 \\
-    WP & 0.698 & 0.795 & 0.874 & 0.608 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{fig6_model_divergence_data_sharing.png}
-  \caption{Model divergence (mean and variance of cosine similarity) vs. data sharing ratio [3].}
-  \label{fig:divergence}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{fig7_fedid_vs_architectures_accuracy.png}
-  \caption{Comparative testing accuracy of FedID vs. CIDwL, CIDwG, and DCID baselines [3].}
-  \label{fig:fedid_comp}
-\end{figure}
-
-\begin{table}[htbp]
-  \centering
-  \caption{BENCHMARK COMPARISON ON CICIOT2023 DATASET [3]}
-  \label{tab:ciciot}
-  \begin{tabular}{llcc}
-    \toprule
-    \textbf{Study} & \textbf{Algorithm / Model} & \textbf{Binary Acc.} & \textbf{Multi Acc.} \\
-    \midrule
-    Abbas (2023) [11] & FL with MLP & 99.00\% & N.A. \\
-    Nkoro (2024) & Centralized MLP & 99.10\% & 70.53\% \\
-    Wang (2023) & Centralized LSTM & N.A. & 93.13\%* \\
-    FedID [3] & FL with XGBoost & 99.60\% & 98.80\% \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\section{Limitations and Remaining Research}
-While FedID eliminates testing communication overhead, our practical analysis identifies three engineering limitations:
-\begin{enumerate}
-    \item \textit{Static Monitor Blind Spots:} Fixed monitor placement leaves unmonitored subtrees vulnerable when attackers relocate.
-    \item \textit{Model Complexity Scaling:} Deeper XGBoost trees increase parameter exchange size exponentially ($2^d$), taxing wireless buffers during training rounds.
-    \item \textit{Vulnerability to Byzantine Poisoning:} Standard FedAvg assumes all participating clients are honest. A compromised node can upload corrupted tree split parameters, skewing the global model.
+    \item \textit{Source-study result:} a claim attributed to the cited Y{\i}lmaz et al. article~\cite{yilmaz2025exploring}.
+    \item \textit{Stored repository value:} a literal array, table entry, or print string in the Team 19 code.
+    \item \textit{Synthetic program output:} a value calculated by the DR-FedID script from its generated samples and seeded random numbers.
+    \item \textit{Unverified claim:} a result or guarantee that cannot be traced to a source-study result or to a calculation in the checked-in code.
 \end{enumerate}
 
-\section{Proposed Novelty for Upcoming Iterations}
-To address these limitations, we design and simulate Dynamic and Resilient FedID (DR-FedID) for future project iterations (Fig.~\ref{fig:novelty}):
-\begin{enumerate}
-    \item \textit{Dynamic Adaptive Monitor Shuffling (DA-FedID):} Motes monitor local parent churn and Trickle resets. When churn exceeds an entropy threshold, monitoring duties rotate to neighboring peers. In our simulations, rotating monitors raised detection against a migrating adversary from 72.00\% to 86.15\% (+14.15\% gain).
-    \item \textit{Multi-Krum Byzantine Aggregation:} To defend against poisoned model updates, the 6LBR applies Multi-Krum aggregation~\cite{blanchard2017machine}, computing pairwise Euclidean distances and rejecting updates beyond 2.5 standard deviations from the geometric median:
-    \begin{equation}
-        \text{Krum}(v_1, \dots, v_n) = \arg\min_i \sum_{i \to j} ||v_i - v_j||^2
-    \end{equation}
-    Under a simulated poisoning attack, baseline FedAvg accuracy collapsed to 56.19\%. Multi-Krum rejected the corrupted update, restoring accuracy to 67.96\% to match the clean baseline (67.35\%).
-    \item \textit{Local Differential Privacy (LDP):} Instead of raw sample sharing, nodes add calibrated Gaussian noise to top-$k$ sparsified weight vectors:
-    \begin{equation}
-        \tilde{w}_i = \text{Sparsify}(w_i) + \mathcal{N}(0, \sigma^2)
-    \end{equation}
-    This provides formal privacy guarantees without exposing packet payloads.
-\end{enumerate}
+The main evaluator can be run with \texttt{python src/evaluate\_architectures.py}; it prints the RQ tables and comparison strings. It does not call a simulator or load a data file. The graph generator plots arrays written in the source. We regenerated its figures in a clean working folder and treated them as visualizations of those arrays. The DR-FedID script is different: it creates artificial samples and computes outputs. We ran that program with its fixed random seed and report the resulting values as outputs of that synthetic setup. None of these steps reconstructs the source paper's 31,626 Cooja scenarios.
+
+The evidence boundary is summarized in Table~\ref{tab:evidence_boundary}. A screenshot of console output can confirm what a script printed, but it cannot establish how an array was originally measured. Likewise, a figure file can be recreated from code constants without providing the underlying run records.
+
+\begin{table}[htbp]
+\centering
+\caption{WHAT THE AVAILABLE PROJECT FILES ESTABLISH.}
+\label{tab:evidence_boundary}
+\begin{tabular}{p{2.6cm}p{5.2cm}}
+\toprule
+\textbf{Material} & \textbf{Supports / does not establish} \\
+\midrule
+Evaluator script & Supports exact printed arrays; does not show their raw measurement source \\
+Graph script & Supports plotted values; does not calculate them from traces \\
+Configuration YAML & Supports intended settings; scripts do not load it \\
+DR-FedID program & Supports reproducible synthetic outputs for its seed; does not model RPL packets \\
+Screenshots & Support that outputs/plots were displayed; do not provide per-run experiment records \\
+Source article & Supports its own published study and benchmark claims; not an independent rerun by Team 19 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Results: Centralized and Distributed Placement}
+\subsection{RQ1: Root-only detection across depth}
+The evaluator stores three nine-level accuracy series: Blackhole, Decreased Rank, and DIS Flooding. Table~\ref{tab:cidwl_values} contains the values printed by the evaluator. The Blackhole series moves from 0.988 at Level 1 to 0.515 at Level 8, then ticks up to 0.520 at Level 9. The change from Level 1 to Level 8 is 47.3 percentage points, or a relative decrease of approximately 47.9\%. This is not a strictly decreasing sequence because of the Level 9 increase.
+
+\begin{table*}[htbp]
+\centering
+\caption{CIDWL VALUES PRINTED BY SRC/EVALUATE\_ARCHITECTURES.PY. THE REPOSITORY HAS NO RUN-LEVEL TRACES FOR RECALCULATING THESE FIGURES.}
+\label{tab:cidwl_values}
+\begin{tabular}{lccccccccc}
+\toprule
+\textbf{Attack} & \textbf{L1} & \textbf{L2} & \textbf{L3} & \textbf{L4} & \textbf{L5} & \textbf{L6} & \textbf{L7} & \textbf{L8} & \textbf{L9} \\
+\midrule
+Blackhole & .988 & .942 & .885 & .793 & .710 & .645 & .582 & .515 & .520 \\
+Decreased Rank & .991 & .965 & .920 & .871 & .812 & .750 & .690 & .620 & .605 \\
+DIS Flooding & .995 & .970 & .935 & .890 & .840 & .790 & .740 & .680 & .660 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+The Decreased Rank values fall from 0.991 to 0.605 between the first and ninth levels. DIS Flooding falls from 0.995 to 0.660 over the same interval. These trends are consistent with the idea that a root-only detector receives less direct evidence about attacks farther down a routing tree. The code does not isolate that mechanism experimentally, so we treat observability as an interpretation of the placement pattern, not as a measured causal explanation.
+
+The heatmap in Fig.~\ref{fig:heatmap} displays seven attack classes and rounds each value to two decimal places. Only three attack series appear in the evaluator's printed RQ1 table. The other four heatmap rows are separate constants in the graph generator. The heatmap therefore broadens the visual summary but does not add independently verified attack measurements. This distinction is important for the SF row: the graph shows values below 0.50 at the deepest levels, while the main evaluator does not print a corresponding SF series.
 
 \begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.88\columnwidth]{novelty_architecture.png}
-  \caption{Proposed Novel Architecture: Dynamic \& Resilient FedID (DR-FedID) for Next Iteration.}
-  \label{fig:novelty}
+\centering
+\includegraphics[width=\columnwidth]{fig3_detection_accuracy_heatmap.png}
+\caption{Seven CIDwL attack series defined in the graph generator and rounded to two decimals.}
+\label{fig:heatmap}
 \end{figure}
 
-\section{Reproducibility and Conclusion}
-All simulation code, parameter configurations, plotting scripts, and LaTeX sources are openly available on GitHub at:\\
-\url{https://github.com/mdilyas-27/cns_project_team_19}.\\
-All experiments used deterministic seeds and Contiki 2.7 configurations to ensure full reproducibility. Scripts include \file{src/simulate_dr_fedid.py} for Byzantine defense and monitor shuffling, \file{src/evaluate_architectures.py} for placement benchmarks, and \file{src/generate_result_graphs.py} for plot generation.
+\subsection{RQ2: CIDwG monitor count and nominal traffic}
+The evaluator lists a Blackhole accuracy value for one through nine monitors and computes communication as 42,000 bytes multiplied by the monitor count. The stored accuracy rises from 0.682 for one monitor to 0.994 for nine. The corresponding nominal byte entry rises from 42,000 to 378,000 bytes per round. At eight monitors, the table lists 0.989 and 336,000 bytes; at nine, it lists 0.994 and 378,000 bytes (Table~\ref{tab:cidwg_counts}).
 
-This study underscores that IDS placement governs detection efficacy in multi-hop RPL networks. Root-only monitoring fails against downstream attacks, while continuous feature streaming overwhelms wireless bandwidth. Federated learning reconciles this conflict by enabling autonomous local inference with zero testing traffic. Sharing a 10\% data slice resolves non-IID gradient drift across hierarchy tiers. DR-FedID extends this foundation with dynamic monitor shuffling to counter evasive adversaries and Multi-Krum aggregation to neutralize poisoned updates. Future work will validate these mechanisms on physical Cortex-M3 motes within the FIT IoT-LAB testbed.
+\begin{table}[htbp]
+\centering
+\caption{CIDWG MONITOR-COUNT VALUES AND NOMINAL BYTES PER ROUND IN THE EVALUATOR.}
+\label{tab:cidwg_counts}
+\begin{tabular}{ccc}
+\toprule
+\textbf{Monitors} & \textbf{BH accuracy} & \textbf{Bytes/round} \\
+\midrule
+1 & .682 & 42,000 \\
+2 & .751 & 84,000 \\
+3 & .824 & 126,000 \\
+4 & .889 & 168,000 \\
+5 & .931 & 210,000 \\
+6 & .960 & 252,000 \\
+7 & .978 & 294,000 \\
+8 & .989 & 336,000 \\
+9 & .994 & 378,000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig4_cidwl_vs_cidwg_accuracy.png}
+\caption{Hard-coded spatial series for CIDwL, three-monitor CIDwG, and nine-monitor CIDwG.}
+\label{fig:cidwg_spatial}
+\end{figure}
+
+These numbers describe the table's assumed scaling. They do not measure radio occupancy, energy, latency, packet loss, or the impact of contention. The earlier manuscript described 378,000 bytes as saturating IEEE 802.15.4 channels. The repository provides no airtime calculation, MAC framing assumptions, measured channel utilization, or loss trace to establish saturation. We therefore report the byte count as a nominal code value and leave channel impact as an open measurement question.
+
+The separate spatial plot in Fig.~\ref{fig:cidwg_spatial} contains another pair of CIDwG series: three-monitor accuracy ranges from 0.85 to 0.79 across attacker distance, while the nine-monitor series remains close to 0.99. These per-level arrays are distinct from the monitor-count table. For example, the monitor-count table gives a single value of 0.824 for three monitors. The repository does not explain the aggregation relationship between these representations, so they should not be combined as if they were observations from one documented run.
+
+\subsection{RQ3: DCID voting threshold}
+The evaluator lists five thresholds (0.10, 0.30, 0.50, 0.70, and 0.90), while the plotting script includes nine thresholds and an FPR array. We combine the nine plotted points in Table~\ref{tab:dcid_thresholds}, marking them as values stored in code rather than recomputed rates. The communication figure stays at 2,700 bytes for every threshold.
+
+\begin{table}[htbp]
+\centering
+\caption{DCID ARRAYS IN THE EVALUATOR AND GRAPH GENERATOR. FPR VALUES COME FROM THE GRAPH GENERATOR.}
+\label{tab:dcid_thresholds}
+\begin{tabular}{cccc}
+\toprule
+\textbf{Threshold} & \textbf{Accuracy} & \textbf{FPR} & \textbf{Bytes/round} \\
+\midrule
+.10 & .945 & .185 & 2,700 \\
+.20 & .920 & .120 & 2,700 \\
+.30 & .892 & .075 & 2,700 \\
+.40 & .850 & .045 & 2,700 \\
+.50 & .805 & .021 & 2,700 \\
+.60 & .740 & .012 & 2,700 \\
+.70 & .672 & .006 & 2,700 \\
+.80 & .590 & .003 & 2,700 \\
+.90 & .510 & .001 & 2,700 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig5_dcid_varying_nodes_accuracy.png}
+\caption{Accuracy and FPR arrays plotted against the DCID voting threshold.}
+\label{fig:dcid_plot}
+\end{figure}
+
+As the threshold increases, the stored detection accuracy falls and the stored FPR also falls. At $\theta=0.10$, the graph lists 0.945 accuracy and 0.185 FPR; at $\theta=0.90$, it lists 0.510 and 0.001. The 0.50 point is 0.805 accuracy and 0.021 FPR. This is a useful operating point to discuss, but the code supplies no cost function, target FPR, or search procedure that would make it a demonstrated optimum. It is more accurate to describe it as one selected trade-off point.
+
+Accuracy and FPR ordinarily require a labeled evaluation set and counts of true positives, false positives, true negatives, and false negatives. None of those records is included. We can check that the arrays move in the stated directions, but we cannot recalculate either metric or determine the uncertainty around a point. Figure~\ref{fig:dcid_plot} is thus a plotted representation of the script's fixed trade-off values.
+
+\section{FedID Summary and CICIoT2023 Claims}
+The evaluator prints six data-sharing ratios with a cosine-similarity value and a Blackhole accuracy value. In that table, cosine similarity rises from 0.54 at 0\% sharing to 0.92 at 10\%, while accuracy rises from 0.712 to 0.957. At 50\% sharing, the listed values are 0.98 and 0.980 (Table~\ref{tab:fedid_summary}). This pattern is compatible with the project's interpretation that more shared local data can reduce client divergence. Since the code does not define a sharing operation, provide local datasets, or train any models, it remains a pattern in the stored summary rather than a verified effect of a 10\% sharing intervention.
+
+\begin{table}[htbp]
+\centering
+\caption{FEDID VALUES PRINTED BY THE EVALUATION SCRIPT. TESTING COMMUNICATION IS A SEPARATE COLUMN FROM TRAINING COMMUNICATION.}
+\label{tab:fedid_summary}
+\begin{tabular}{cccc}
+\toprule
+\textbf{Sharing} & \textbf{Cosine sim.} & \textbf{BH accuracy} & \textbf{Testing bytes} \\
+\midrule
+0\% & .54 & .712 & 0 \\
+5\% & .78 & .845 & 0 \\
+10\% & .92 & .957 & 0 \\
+20\% & .95 & .968 & 0 \\
+30\% & .97 & .975 & 0 \\
+50\% & .98 & .980 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig6_model_divergence_data_sharing.png}
+\caption{FedID sharing-ratio series regenerated from the arrays in \texttt{src/generate\_result\_graphs.py}.}
+\label{fig:fedid_curve}
+\end{figure}
+
+The graph generator plots eight sharing ratios, including 15\% and 40\%, which do not appear in the evaluator table (Fig.~\ref{fig:fedid_curve}). At the overlapping points, the plotted values broadly follow the table; the additional points come only from the graph's constants. Its vertical marker labels 10\% as ``optimal,'' but there is no search or objective calculation in the code. We keep the figure because it conveys the project's intended trend, while treating the marker as an annotation rather than a validated optimum.
+
+The evaluator also prints 99.60\% binary accuracy and 98.80\% multiclass accuracy for CICIoT2023. Those values are fixed strings in the script. They are reported in the cited placement study~\cite{yilmaz2025exploring}, but the Team 19 repository contains no CICIoT2023 data, split file, preprocessing pipeline, or evaluation code. We therefore attribute the benchmark figures to the cited study and do not present them as an independent project rerun. CICIoT2023 itself is a large IoT traffic collection built using 105 devices and 33 attack types~\cite{neto2023ciciot2023}; reproducing a result on it also requires documenting class handling, feature selection, split strategy, and metrics.
+
+\subsection{Why zero testing bytes is a narrow claim}
+The comparison table describes FedID as sending model weights and assigns zero bytes to testing. That can be meaningful if each node can perform local inference and the global model is already present at the inference location. It does not imply zero communication over the entire lifecycle. Training may require model updates and broadcasts; model distribution, synchronization, retries, and update sizes also contribute. The evaluator has no training-byte accounting and no model file. Accordingly, our interpretation is limited to the literal label ``testing bytes'' in the stored output.
+
+\section{DR-FedID: What the Prototype Computes}
+The repository contains a separate script that generates the results plotted in Fig.~\ref{fig:dr_sim}. We ran it with the script's seed of 42 in an isolated output folder. The script creates 10 depth-specific datasets, each with 300 synthetic benign examples and 150 synthetic attack examples. Every example has 35 generated features. A depth-dependent shift is added to the feature distribution; attack examples receive further shifts in selected features. The code divides each level's samples into a 75\% training subset and a 25\% test subset, then combines the local test subsets for global evaluation.
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{dr_fedid_simulation_results.png}
+\caption{Seeded synthetic outputs from \texttt{src/simulate\_dr\_fedid.py}: (a) global accuracy across ten rounds and (b) heuristic detection scores for a relocating attacker.}
+\label{fig:dr_sim}
+\end{figure*}
+
+The aggregation experiment trains a linear sigmoid classifier with gradient descent. It runs ten communication rounds over nine collaborators. One participant is designated Byzantine and submits a deliberately perturbed vector. The output at round ten is 67.35\% accuracy for clean FedAvg, 56.19\% for the poisoned FedAvg condition, and 67.96\% for the routine labeled DR-FedID/Multi-Krum. These values are reproducible for this synthetic setup and seed. They do not measure XGBoost behavior, a Cooja network, a physical IDS, or generalization to a real traffic distribution.
+
+The aggregation code also deserves closer review. It sets $f=1$, even though the YAML declares tolerance of two Byzantine participants. For nine updates and $f=1$, the script's slice \texttt{sorted\_d[1:n-f]} sums seven non-self distances; the Krum score in the cited formulation is based on the $n-f-2=6$ nearest other vectors~\cite{blanchard2017machine}. The program then averages eight selected vectors. We therefore describe this as the script's routine labeled Multi-Krum, rather than claiming that the implementation satisfies the cited algorithm's resilience conditions. A formal comparison with the algorithm and tests against multiple adversarial strategies would be required before making a Byzantine-resilience claim.
+
+The second experiment in the script runs for 12 time steps. The attacker depth follows a fixed cycle. A static configuration uses two monitor levels; the rotating configuration assigns three levels at each step. Detection scores are then drawn from ranges selected by a proximity rule. With the seed fixed at 42, the means are 72.00\% for static placement and 86.15\% for rotation, a 14.15 percentage-point difference (rounded to 14.2 points in the console). These are outputs of a hand-coded coverage heuristic. They are not measured from packets, and the code does not compute routing churn or entropy even though the configuration names a churn threshold.
+
+Several other parts of the DR-FedID story are not implemented. The YAML lists epsilon and delta, but the script does not use them, clip updates, or add privacy noise. No local differential-privacy guarantee follows from the current program. The README and comparison strings also show a 98.2\% DR-FedID accuracy value; that value does not match the 67.96\% round-ten output of the synthetic script. It is another fixed summary that should not be presented as a result of the checked-in simulation. The architecture drawing is best understood as a proposal for a future system (Fig.~\ref{fig:novelty_arch}).
+
+The proposal diagram also names local XGBoost training, gradient sparsification, quantized parameter exchange, and periodic model distribution. Those mechanisms are not implemented by the current script, which trains a simple linear sigmoid model and does not account for model-transfer bytes. Figure~\ref{fig:novelty_arch} is included as a design sketch so readers can compare the intended system with the prototype that is actually present.
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{novelty_architecture.png}
+\caption{DR-FedID architecture proposed in the repository. The figure describes next-iteration mechanisms; the checked-in program does not implement the complete design.}
+\label{fig:novelty_arch}
+\end{figure*}
+
+\subsection{A conflict in the project's multi-criteria comparison}
+The graph generator's multi-criteria figure combines the CIDwL value at Level 8, the CIDwG three- and nine-monitor summaries, the DCID 0.50 point, a FedID 10\% summary, and a DR-FedID value of 0.982 (Fig.~\ref{fig:multi_criteria}). It places accuracy and testing communication on different axes. The script supplies no common evaluation split or cost accounting for these systems, and the DR-FedID 0.982 value conflicts with the synthetic program's round-ten output. We therefore do not use the bar heights to rank the architectures. Figure~\ref{fig:multi_criteria} is included as an example of a project visualization whose assumptions need to be made explicit before it can support a cross-system conclusion.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig7_fedid_vs_architectures_accuracy.png}
+\caption{Repository comparison plot. The DR-FedID bar and zero-testing-byte labels are fixed entries and are not verified by the synthetic program or a shared evaluation.}
+\label{fig:multi_criteria}
+\end{figure}
+
+\section{Discussion}
+The code's stored arrays tell a coherent qualitative story: root-only accuracy is lower at deeper positions for several attack types; the CIDwG table assigns greater accuracy to larger monitor sets and scales byte totals linearly; and the DCID graph trades detection against false alarms as the vote threshold changes. The FedID summary shows higher cosine similarity and accuracy at higher sharing ratios. These patterns can guide questions for a full experiment, but their current evidence is uneven. The evaluator and graph scripts define arrays; they do not supply the records behind the arrays.
+
+There is no single placement choice that can be selected from accuracy alone. CIDwL avoids forwarding telemetry but can miss remote events. CIDwG makes more observations available to a root detector at a larger nominal communication total. DCID reduces the claimed message payload to alarm tokens, but its FPR and accuracy values need raw confusion counts. FedID shifts communication toward training and model distribution; its listed zero testing bytes do not include those stages. These are useful engineering dimensions, but a fair comparison would apply each architecture to the same topology, attack traces, train/test split, and metric definitions.
+
+\subsection{Validity and reproducibility limitations}
+Several limits affect interpretation:
+\begin{itemize}
+    \item \textit{No raw Cooja artifacts.} The repository lacks simulator projects, firmware, run seeds, traffic traces, and per-run labels. The named setup is not enough to replay a scenario.
+    \item \textit{No metric denominators.} Without confusion matrices or predictions, accuracy and FPR cannot be checked, and no confidence interval can be computed.
+    \item \textit{Different figures use different arrays.} The evaluator and graph generator have overlapping but non-identical point sets. The graph images under \texttt{figures/} also differ from same-named files under \texttt{paper/images/}; a figure manifest would remove this ambiguity.
+    \item \textit{No measured resource cost.} The byte totals do not account for packet headers, radio retransmission, contention, or energy. Testing bytes are not training bytes.
+    \item \textit{No deployed FedID model.} The project does not include a training pipeline, client data partitions, model checkpoints, or CICIoT2023 preprocessing details.
+    \item \textit{Synthetic DR-FedID assumptions.} Its seed makes the program repeatable, but the generated distributions and proximity rule define the results. Repetition of the same synthetic recipe is not external validation.
+\end{itemize}
+
+The DR script sets a machine-specific Matplotlib configuration path, which complicates portability. The graph generator has the same issue. Both scripts should accept an output/cache path or use a temporary directory chosen at runtime. The configuration YAML should also be loaded by the programs rather than maintained as a separate description. These changes would reduce the chance that the paper, plots, and executable settings drift apart.
+
+\section{A Reproduction Plan}
+A stronger evaluation can be built from the project structure without presuming the current arrays are measured results.
+
+The first step is to define the experiment and archive its inputs. Each scenario should record the simulator and firmware version, topology file, routing parameters, attack node and behavior, random seed, feature-window settings, and software dependencies. A machine-readable run manifest can link each trace to its configuration.
+
+The placement experiment should then produce one labeled record per detector decision. For every attack and depth, the report should publish the confusion matrix and calculate accuracy, recall, precision, and FPR from that matrix. Repeating each scenario under multiple seeds would allow means and uncertainty intervals to be reported. The specific values in the current arrays can serve as hypotheses to check, not expected outputs to force.
+
+For CIDwG and DCID, communication should be measured from packet captures or a documented byte model that states whether headers, retransmissions, and control traffic are included. Radio airtime and energy should be measured or estimated from an explicit MAC model before claiming channel saturation or battery impact. For FedID, the training protocol should name the client partition, update size, aggregation step, model serialization, number of rounds, and training/test communication separately. Any privacy claim should be tied to an implemented mechanism and its formal parameters.
+
+The DR-FedID prototype should be treated as an exploratory algorithm exercise until it uses a validated aggregator and a realistic data source. A follow-up should test multiple Byzantine fractions and attack strategies, validate the selection rule against a reference implementation, and report clean, poisoned, and defended runs across seeds. Monitor rotation should be triggered by a computed routing-churn statistic and evaluated against packet-level observations. These steps would turn a deterministic demonstration into an experiment that can be challenged and reproduced by another team.
+
+\section{Conclusion}
+This project raises a practical question for RPL security: what can an IDS see from its chosen location, and what does it cost to share information across constrained links? The repository's stored CIDwL, CIDwG, DCID, and FedID values illustrate several possible trade-offs. Our audit shows, however, that most of those values are fixed arrays rather than results that can be recomputed from included network records.
+
+\begin{table}[htbp]
+\centering
+\caption{MINIMUM ADDITIONS NEEDED TO REPRODUCE THE MAIN RESULT FAMILIES.}
+\label{tab:repro_additions}
+\begin{tabular}{p{2.2cm}p{5.6cm}}
+\toprule
+\textbf{Result family} & \textbf{Additional artifacts or measurements} \\
+\midrule
+CIDwL/CIDwG & Cooja project, firmware, seeds, raw traces, attack schedules, per-depth confusion matrices \\
+DCID & Local predictions, alarm packets, vote rule, false-positive denominators, byte/airtime accounting \\
+FedID & Dataset version and split, client partitions, preprocessing, trainer, model format, update sizes \\
+DR-FedID & Validated robust aggregator, executed privacy mechanism, routing-churn inputs, repeated runs \\
+All figures & One canonical data file per figure, script version, units, rounding rule, and generation command \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The DR-FedID script does compute outputs, but it does so on synthetic data and a hand-coded monitor heuristic; its privacy settings are unused and its algorithm label needs validation. The report therefore distinguishes source-study results, repository summaries, and synthetic program output. That distinction does not diminish the project's value as a course investigation; it makes the next engineering step clearer. A runnable Cooja setup, archived traces, transparent metric calculations, consistent figure inputs, and a complete FedID/DR-FedID implementation would allow the proposed comparisons to be tested rather than inferred from stored values.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
