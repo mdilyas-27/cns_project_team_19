@@ -83,8 +83,8 @@ The project investigates the spatial placement of Intrusion Detection Systems (I
 Clone the repository and install dependencies in a clean virtual environment:
 
 ```bash
-git clone https://github.com/mdilyas-27/cns_project_team19.git
-cd cns_project_team19
+git clone https://github.com/mdilyas-27/cns_project_team_19.git
+cd cns_project_team_19
 
 python -m venv venv
 # On Windows:
@@ -147,7 +147,7 @@ Alternatively, upload `Research_Paper_Project.zip` directly to [Overleaf](https:
   address   = {Chennai 600127, India},
   note      = {Course: Computer Networks and Security (CNS), Team 19},
   year      = {2026},
-  url       = {https://github.com/mdilyas-27/cns_project_team19}
+  url       = {https://github.com/mdilyas-27/cns_project_team_19}
 }
 ```
 
