@@ -1,10 +1,9 @@
 # Exploring and Enhancing Placement of Intrusion Detection Systems in RPL: A Federated Learning-Based Approach
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Institution: IIITDM Kancheepuram](https://img.shields.io/badge/Institution-IIITDM%20Kancheepuram-orange.svg)](https://www.iiitdm.ac.in/)
 [![Course: CNS](https://img.shields.io/badge/Course-Computer%20Networks%20%26%20Security-green.svg)](#)
-[![Team: 19](https://img.shields.io/badge/Team-19-purple.svg)](#)
+
 
 This repository contains the simulation code, evaluation benchmarks, result graph generators, Beamer presentation, and IEEE Transactions LaTeX manuscript for the course project in **Computer Networks and Security (CNS)** at the **Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)**.
 
