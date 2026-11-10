@@ -17,9 +17,11 @@
 \usepackage{placeins}
 
 % Shared author and affiliation definitions for the report
-\newcommand{\ProjectAuthorNames}{Student Author, Research Team}
+\newcommand{\ProjectAuthorNames}{Mohammadilyas Patel, Shaik Sifat Ahmed, Abhinay}
 \newcommand{\ProjectInstitution}{Indian Institute of Information Technology,\\Design and Manufacturing, Kancheepuram}
 \newcommand{\ProjectLocation}{Chennai 600127, India}
+\newcommand{\ProjectTeam}{Team 19}
+\newcommand{\ProjectRepo}{https://github.com/mdilyas-27/cns_project_team19}
 
 % Empirical metric macros for exact reproducibility
 \newcommand{\BHRootDegradation}{47.3\%}
@@ -35,16 +37,26 @@
 \title{Exploring and Enhancing Placement of Intrusion Detection Systems in RPL: A Federated Learning-Based Approach}
 
 \author{
-    \IEEEauthorblockN{Student Author}
+    \IEEEauthorblockN{Mohammadilyas Patel}
     \IEEEauthorblockA{
-        Dept. of Computer Science and Engineering\\
+        cs23b1078@iiitdm.ac.in\\
+        Dept. of CSE, Team 19\\
         IIITDM Kancheepuram\\
         Chennai 600127, India
     }
     \and
-    \IEEEauthorblockN{Course Candidate, Research Team}
+    \IEEEauthorblockN{Shaik Sifat Ahmed}
     \IEEEauthorblockA{
-        Course: Computer Networks and Security (CNS)\\
+        cs23b1035@iiitdm.ac.in\\
+        Dept. of CSE, Team 19\\
+        IIITDM Kancheepuram\\
+        Chennai 600127, India
+    }
+    \and
+    \IEEEauthorblockN{Abhinay}
+    \IEEEauthorblockA{
+        cs23i1009@iiitdm.ac.in\\
+        Dept. of CSE, Team 19\\
         IIITDM Kancheepuram\\
         Chennai 600127, India
     }
@@ -412,13 +424,13 @@ As illustrated in Fig.~\ref{fig:novelty_sim}, under a Byzantine poisoning attack
 \end{figure}
 
 \section{Reproducibility}
-Source code, simulation configuration files, dataset feature schemas, extracted figures, and build scripts are packaged in the project repository. All experimental runs used deterministic random seeds and standardized Contiki 2.7 parameters to ensure reproducibility.
+All simulation source code, network configurations, result plotting scripts, and LaTeX documentation are openly available on GitHub at: \url{https://github.com/mdilyas-27/cns_project_team19}. All experimental runs used deterministic random seeds and standardized Contiki 2.7 parameters to ensure complete reproducibility.
 
-The companion GitHub repository provides executable scripts for the simulation environment:
+The companion repository provides executable scripts for the simulation environment:
 \begin{itemize}
-    \item \file{scripts/simulate_dr_fedid.py}: Runs the Byzantine poisoning and dynamic rotation simulation.
-    \item \file{scripts/evaluate_architectures.py}: Benchmarks CIDwL, CIDwG, and DCID.
-    \item \file{scripts/generate_result_graphs.py}: Generates all publication-quality result plots.
+    \item \file{src/simulate_dr_fedid.py}: Runs the Byzantine poisoning and dynamic rotation simulation.
+    \item \file{src/evaluate_architectures.py}: Benchmarks CIDwL, CIDwG, and DCID.
+    \item \file{src/generate_result_graphs.py}: Generates all publication-quality result plots.
 \end{itemize}
 
 \section{Conclusion}
@@ -428,3 +440,4 @@ This project demonstrated that intrusion detection in RPL networks is fundamenta
 \bibliography{references}
 
 \end{document}
+

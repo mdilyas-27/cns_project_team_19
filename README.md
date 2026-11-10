@@ -4,8 +4,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Institution: IIITDM Kancheepuram](https://img.shields.io/badge/Institution-IIITDM%20Kancheepuram-orange.svg)](https://www.iiitdm.ac.in/)
 [![Course: CNS](https://img.shields.io/badge/Course-Computer%20Networks%20%26%20Security-green.svg)](#)
+[![Team: 19](https://img.shields.io/badge/Team-19-purple.svg)](#)
 
-This repository contains the simulation code, evaluation benchmarks, result graph generators, and IEEE Transactions LaTeX source for the research course project in **Computer Networks and Security (CNS)** at the **Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)**.
+This repository contains the simulation code, evaluation benchmarks, result graph generators, Beamer presentation, and IEEE Transactions LaTeX manuscript for the course project in **Computer Networks and Security (CNS)** at the **Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)**.
+
+### Team Members (Team 19):
+- **Mohammadilyas Patel** (Roll No: `CS23B1078`) — `cs23b1078@iiitdm.ac.in`
+- **Shaik Sifat Ahmed** (Roll No: `CS23B1035`) — `cs23b1035@iiitdm.ac.in`
+- **Abhinay** (Roll No: `CS23I1009`) — `cs23i1009@iiitdm.ac.in`
 
 The project investigates the spatial placement of Intrusion Detection Systems (IDSs) in multi-hop Routing Protocol for Low-Power and Lossy Networks (RPL), evaluates decentralized Federated Learning (FedID), and introduces an upcoming-iteration extension: **Dynamic and Resilient FedID (DR-FedID)**.
 
@@ -77,8 +83,8 @@ The project investigates the spatial placement of Intrusion Detection Systems (I
 Clone the repository and install dependencies in a clean virtual environment:
 
 ```bash
-git clone https://github.com/<username>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/mdilyas-27/cns_project_team19.git
+cd cns_project_team19
 
 python -m venv venv
 # On Windows:
@@ -134,12 +140,14 @@ Alternatively, upload `Research_Paper_Project.zip` directly to [Overleaf](https:
 ## Citation & Authorship
 
 ```bibtex
-@article{cns_rpl_fedid_2026,
-  author    = {Student Author and Research Team},
+@article{cns_rpl_fedid_team19,
+  author    = {Mohammadilyas Patel and Shaik Sifat Ahmed and Abhinay},
   title     = {Exploring and Enhancing Placement of Intrusion Detection Systems in RPL: A Federated Learning-Based Approach},
   institution = {Indian Institute of Information Technology, Design and Manufacturing, Kancheepuram (IIITDM Kancheepuram)},
   address   = {Chennai 600127, India},
-  year      = {2026}
+  note      = {Course: Computer Networks and Security (CNS), Team 19},
+  year      = {2026},
+  url       = {https://github.com/mdilyas-27/cns_project_team19}
 }
 ```
 
