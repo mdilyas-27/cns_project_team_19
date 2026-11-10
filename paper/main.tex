@@ -97,12 +97,12 @@ In federated averaging, the server combines each client update using a weight pr
 \centering
 \begin{subfigure}[b]{0.48\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{fig1_network_topology.png}
+  \includegraphics[width=\textwidth]{images/fig1_network_topology.png}
 \end{subfigure}
 \hfill
 \begin{subfigure}[b]{0.48\textwidth}
   \centering
-  \includegraphics[width=\textwidth]{fig2_scenario_collaborators.png}
+  \includegraphics[width=\textwidth]{images/fig2_scenario_collaborators.png}
 \end{subfigure}
 \caption{Repository illustrations of the 30-node routing topology and example CIDwG/DCID placements. The diagrams describe the intended scenario; they do not constitute simulator output.}
 \label{fig:topologies}
@@ -183,7 +183,7 @@ The heatmap in Fig.~\ref{fig:heatmap} displays seven attack classes and rounds e
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{fig3_detection_accuracy_heatmap.png}
+\includegraphics[width=\columnwidth]{images/fig3_detection_accuracy_heatmap.png}
 \caption{Seven CIDwL attack series defined in the graph generator and rounded to two decimals.}
 \label{fig:heatmap}
 \end{figure}
@@ -214,7 +214,7 @@ The evaluator lists a Blackhole accuracy value for one through nine monitors and
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{fig4_cidwl_vs_cidwg_accuracy.png}
+\includegraphics[width=\columnwidth]{images/fig4_cidwl_vs_cidwg_accuracy.png}
 \caption{Hard-coded spatial series for CIDwL, three-monitor CIDwG, and nine-monitor CIDwG.}
 \label{fig:cidwg_spatial}
 \end{figure}
@@ -249,7 +249,7 @@ The evaluator lists five thresholds (0.10, 0.30, 0.50, 0.70, and 0.90), while th
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{fig5_dcid_varying_nodes_accuracy.png}
+\includegraphics[width=\columnwidth]{images/fig5_dcid_varying_nodes_accuracy.png}
 \caption{Accuracy and FPR arrays plotted against the DCID voting threshold.}
 \label{fig:dcid_plot}
 \end{figure}
@@ -281,7 +281,7 @@ The evaluator prints six data-sharing ratios with a cosine-similarity value and 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{fig6_model_divergence_data_sharing.png}
+\includegraphics[width=\columnwidth]{images/fig6_model_divergence_data_sharing.png}
 \caption{FedID sharing-ratio series regenerated from the arrays in \texttt{src/generate\_result\_graphs.py}.}
 \label{fig:fedid_curve}
 \end{figure}
@@ -298,7 +298,7 @@ The repository contains a separate script that generates the results plotted in 
 
 \begin{figure*}[htbp]
 \centering
-\includegraphics[width=0.88\textwidth]{dr_fedid_simulation_results.png}
+\includegraphics[width=0.88\textwidth]{images/dr_fedid_simulation_results.png}
 \caption{Seeded synthetic outputs from \texttt{src/simulate\_dr\_fedid.py}: (a) global accuracy across ten rounds and (b) heuristic detection scores for a relocating attacker.}
 \label{fig:dr_sim}
 \end{figure*}
@@ -315,7 +315,7 @@ The proposal diagram also names local XGBoost training, gradient sparsification,
 
 \begin{figure*}[htbp]
 \centering
-\includegraphics[width=0.88\textwidth]{novelty_architecture.png}
+\includegraphics[width=0.88\textwidth]{images/novelty_architecture.png}
 \caption{DR-FedID architecture proposed in the repository. The figure describes next-iteration mechanisms; the checked-in program does not implement the complete design.}
 \label{fig:novelty_arch}
 \end{figure*}
@@ -325,7 +325,7 @@ The graph generator's multi-criteria figure combines the CIDwL value at Level 8,
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{fig7_fedid_vs_architectures_accuracy.png}
+\includegraphics[width=\columnwidth]{images/fig7_fedid_vs_architectures_accuracy.png}
 \caption{Repository comparison plot. The DR-FedID bar and zero-testing-byte labels are fixed entries and are not verified by the synthetic program or a shared evaluation.}
 \label{fig:multi_criteria}
 \end{figure}
