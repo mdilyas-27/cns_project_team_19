@@ -318,7 +318,7 @@ To defend against poisoned updates from compromised nodes, the 6LBR replaces lin
 \begin{equation}
     \text{Krum}(v_1, \dots, v_n) = \arg\min_{i} \sum_{i \to j} ||v_i - v_j||^2
 \end{equation}
-Updates deviating by more than 2.5 standard deviations from the geometric median are rejected prior to model merging. Under a simulated poisoning attack, baseline FedAvg accuracy collapsed to 56.19\%. Multi-Krum aggregation rejected the corrupted update, maintaining 67.96\% accuracy to match the clean baseline.
+Updates deviating by more than 2.5 standard deviations from the geometric median are rejected prior to model merging. Under a simulated poisoning attack, baseline FedAvg accuracy collapsed to 56.19\%. Multi-Krum aggregation rejected the corrupted update, maintaining 67.96\% accuracy to match the clean baseline (67.35\%).
 
 \subsection{Local Differential Privacy (LDP)}
 To protect data confidentiality without exchanging raw 10\% sample slices, motes perturb their sparsified weight updates with calibrated Gaussian noise:

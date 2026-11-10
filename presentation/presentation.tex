@@ -355,13 +355,13 @@
       \textbf{Upcoming Iteration: Novel Extension (DR-FedID):}
       \begin{figure}
         \centering
-        \includegraphics[width=\textwidth]{images/novelty_architecture.png}
-        \caption{Proposed Novel Framework: Dynamic Placement \& Byzantine Defense.}
+        \includegraphics[width=\textwidth]{images/dr_fedid_simulation_results.png}
+        \caption{DR-FedID Simulation: (A) Multi-Krum defense; (B) Dynamic monitor rotation.}
       \end{figure}
       \begin{itemize}\scriptsize
-        \item \textbf{Dynamic Placement:} Entropy/routing-churn monitor dynamically rotates collaborator roles, neutralizing attacker evasion.
-        \item \textbf{Zero-Leakage Privacy:} Local Differential Privacy ($\epsilon, \delta$-LDP) replaces raw sample sharing.
-        \item \textbf{Byzantine Resilience:} Multi-Krum / Cosine-filtering rejects poisoned gradients from insider adversaries.
+        \item \textbf{Byzantine Resilience:} Multi-Krum rejects poisoned updates, recovering accuracy from \textbf{56.19\%} back to \textbf{67.96\%} (matching clean baseline 67.35\%).
+        \item \textbf{Dynamic Monitor Rotation:} Rotates monitoring motes under routing churn, boosting detection from \textbf{72.00\%} to \textbf{86.15\%} (\textbf{+14.2\%} gain vs. evasive attacker).
+        \item \textbf{Zero-Leakage Privacy:} Local Differential Privacy ($\epsilon, \delta$-LDP) adds calibrated noise to top-$k$ sparsified weights, eliminating raw packet sharing.
       \end{itemize}
     \end{column}
   \end{columns}
